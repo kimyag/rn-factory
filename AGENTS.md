@@ -41,14 +41,11 @@ pnpm lint                       # lint
   use the `.ts` extension. Node loads these files directly.
 - Do not create or edit `ios/` or `android/`. Use app config and config plugins.
 - TypeScript strict. No `any`, no `@ts-ignore`.
-- No `useEffect` or `useState` for values you can compute during render.
+- Before UI work in `apps/*` or `packages/ui`, read
+  `.claude/skills/react-native/SKILL.md` and follow it.
 - Long lists use `FlatList`, never `ScrollView` with `map`.
 - No hardcoded colors, spacing, or user-facing text. Use theme tokens and
   translation keys.
-- No inline style objects inside list items.
-- No `useMemo`, `useCallback`, or `React.memo` by default. Only for a measured
-  performance problem.
-- No wrapper components that only pass props through.
 - No `console.log` in commits. No comments that repeat what the code says.
 - Remove Expo template example screens and assets that we do not use.
 - Change only the files the task needs.
