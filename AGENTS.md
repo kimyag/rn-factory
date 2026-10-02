@@ -44,7 +44,7 @@ pnpm lint                       # lint
   use the `.ts` extension. Node loads these files directly.
 - Do not create or edit `ios/` or `android/`. Use app config and config plugins.
 - TypeScript strict. No `any`, no `@ts-ignore`.
-- Before UI work in `apps/*` or `packages/ui`, read
+- Before UI work in `apps/*`, `packages/ui`, or `packages/screens`, read
   `.claude/skills/react-native/SKILL.md` and follow it.
 - Long lists use `FlatList`, never `ScrollView` with `map`.
 - No hardcoded colors, spacing, or user-facing text. Use theme tokens and

@@ -1,11 +1,11 @@
 ---
 name: react-native
-description: React Native UI patterns for this repo. Use for any UI work in apps/* or packages/ui - screens, components, hooks, lists, images, styles, accessibility, re-renders. Covers only what the Expo plugin skills do not.
+description: React Native UI patterns for this repo. Use for any UI work in apps/*, packages/ui, or packages/screens - screens, components, hooks, lists, images, styles, accessibility, re-renders. Covers only what the Expo plugin skills do not.
 ---
 
 # React Native patterns
 
-Rules for UI code in `apps/*` and `packages/ui`, as bad/good pairs.
+Rules for UI code in `apps/*`, `packages/ui`, and `packages/screens`, as bad/good pairs.
 The Expo plugin skills cover lists vs. `ScrollView`, theme token structure,
 Expo Router and typed routes, safe areas, platform files, keyboard, animation,
 React Compiler and memoization, and labels for icon-only controls. Use them for
