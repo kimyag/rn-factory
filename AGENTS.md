@@ -1,6 +1,6 @@
 # AGENTS.md
 
-The single source of rules for this repo. Read it before every task.
+The must-rules for all agents. Read it before every task. UI patterns are in `.claude/skills/react-native/SKILL.md`.
 
 ## Stack
 - pnpm monorepo, TypeScript strict, Node 22.18+ (`.nvmrc`).
