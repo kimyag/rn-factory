@@ -11,8 +11,11 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
 - Goal: each new app is one settings file plus one feature folder.
 
 ## Folder map
-- `apps/<app>/` – one app: `app.settings.ts` and its feature folder.
+- `apps/<app>/` – one app: `app.settings.ts` and its feature folder `src/feature/`.
+  `src/app/` holds only one-line route files.
 - `packages/core` – `@factory/core`: app settings schema and shared logic.
+- `packages/screens` – `@factory/screens`: root layout, onboarding and settings
+  screens shared by all apps.
 - `packages/ui` – theme tokens and shared components.
 - `packages/payments` – RevenueCat module, on or off from app settings.
 - `docs/decisions.md` – decision log.
