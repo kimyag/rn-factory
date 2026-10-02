@@ -12,6 +12,7 @@
   "peerDependencies": {
     "@types/react": "*",
     "expo-font": "*",
+    "expo-localization": "*",
     "expo-router": "*",
     "expo-splash-screen": "*",
     "expo-status-bar": "*",

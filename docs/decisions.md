@@ -46,3 +46,7 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | The root ESLint config applies the `@typescript-eslint` rules only to `.ts` and `.tsx` files | Expo's config loads that plugin only for TypeScript files, so any `.js` file, such as `metro.config.js`, failed lint. |
 | 2026-10-02 | Static web pages render with default values; the browser applies stored values on load | The web is outside #6's criteria (Expo Go and native builds). |
 | 2026-10-02 | Persist app state only through `@factory/core/storage` (rule in `AGENTS.md`) | The install adds a global `localStorage`; one entry point keeps types, checks, and versions. |
+| 2026-10-02 | Translations without an i18n library: a typed `useText` lookup in `@factory/app` with `{name}` values and `Intl.PluralRules` plurals, plus `expo-localization` for the device language | One new dependency; keys and values are checked by TypeScript. |
+| 2026-10-02 | Translation files live next to their code: `src/text/en.ts` and `tr.ts` in each package and app | Each package owns its text; nothing central to keep in sync. |
+| 2026-10-02 | Packages and apps share only the current language; each reads its own typed text set | Keys never collide and each package is checked on its own. |
+| 2026-10-02 | Device language by default, English fallback; a manual choice (`setChoice`) is in memory until settings (#4) adds a picker; each language declares its text direction | Covers the override and leaves room for right-to-left languages. |

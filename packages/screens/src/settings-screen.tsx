@@ -1,25 +1,31 @@
+import { useText } from '@factory/app';
 import { Button, createStyles, Screen, Text, useThemeMode, type ThemeMode } from '@factory/ui';
-import { Link } from 'expo-router';
+import { Link, Stack } from 'expo-router';
 import { View } from 'react-native';
 
-const modes: { mode: ThemeMode; label: string }[] = [
-  { mode: 'system', label: 'System' },
-  { mode: 'light', label: 'Light' },
-  { mode: 'dark', label: 'Dark' },
+import type { en } from './text/en.ts';
+import { text } from './text/index.ts';
+
+const modes: { mode: ThemeMode; label: keyof typeof en }[] = [
+  { mode: 'system', label: 'settings.appearance.system' },
+  { mode: 'light', label: 'settings.appearance.light' },
+  { mode: 'dark', label: 'settings.appearance.dark' },
 ];
 
 export function SettingsScreen() {
   const { mode, setMode } = useThemeMode();
+  const t = useText(text);
   const styles = useStyles();
 
   return (
     <Screen>
-      <Text>Settings come in #4.</Text>
+      <Stack.Screen options={{ title: t('settings.title') }} />
+      <Text>{t('settings.comingSoon')}</Text>
       <View style={styles.row}>
         {modes.map((option) => (
           <Button
             key={option.mode}
-            title={option.label}
+            title={t(option.label)}
             variant={option.mode === mode ? 'primary' : 'secondary'}
             selected={option.mode === mode}
             onPress={() => setMode(option.mode)}
@@ -31,11 +37,12 @@ export function SettingsScreen() {
 }
 
 export function SettingsButton() {
+  const t = useText(text);
   const styles = useStyles();
 
   return (
     <Link href="/settings" style={styles.link}>
-      Settings
+      {t('settings.title')}
     </Link>
   );
 }

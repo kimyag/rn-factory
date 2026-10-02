@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
 
+import { LanguageProvider } from './language-state.tsx';
 import { OnboardingProvider } from './onboarding-state.tsx';
 
 void SplashScreen.preventAutoHideAsync();
@@ -36,11 +37,13 @@ export function FactoryProvider({ settings, fontFiles = {}, children }: FactoryP
   }
 
   return (
-    <ThemeProvider settings={settings}>
-      <NavigationTheme>
-        <OnboardingProvider>{children}</OnboardingProvider>
-      </NavigationTheme>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider settings={settings}>
+        <NavigationTheme>
+          <OnboardingProvider>{children}</OnboardingProvider>
+        </NavigationTheme>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 
