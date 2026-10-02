@@ -1,13 +1,15 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { createStyles, Screen, Text } from '@factory/ui';
 
 export function HomeScreen() {
+  const styles = useStyles();
+
   return (
-    <View style={styles.container}>
+    <Screen style={styles.centered}>
       <Text>Feature screen</Text>
-    </View>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
+const useStyles = createStyles(() => ({
+  centered: { alignItems: 'center', justifyContent: 'center' },
+}));

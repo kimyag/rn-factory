@@ -12,11 +12,12 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
 
 ## Folder map
 - `apps/<app>/` – one app: `app.settings.ts` and its feature folder `src/feature/`.
-  `src/app/` holds only one-line route files.
+  `src/app/` holds the app's `_layout.tsx` and one-line route files.
 - `packages/core` – `@factory/core`: app settings schema and shared logic.
-- `packages/screens` – `@factory/screens`: root layout, onboarding and settings
-  screens shared by all apps.
-- `packages/ui` – theme tokens and shared components.
+- `packages/app` – `@factory/app`: `FactoryProvider` (theme, navigation theme,
+  fonts, onboarding guard).
+- `packages/screens` – `@factory/screens`: onboarding and settings screens.
+- `packages/ui` – `@factory/ui`: tokens and components; see `packages/ui/DESIGN.md`.
 - `packages/payments` – RevenueCat module, on or off from app settings.
 - `docs/decisions.md` – decision log.
 - `.github/` – issue and PR templates, CI.

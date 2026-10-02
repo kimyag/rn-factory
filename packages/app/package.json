@@ -1,16 +1,19 @@
 {
-  "name": "@factory/screens",
+  "name": "@factory/app",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {
-    "@factory/app": "workspace:*",
+    "@factory/core": "workspace:*",
     "@factory/ui": "workspace:*"
   },
   "peerDependencies": {
     "@types/react": "*",
+    "expo-font": "*",
     "expo-router": "*",
+    "expo-splash-screen": "*",
+    "expo-status-bar": "*",
     "react": "*",
     "react-native": "*"
   }

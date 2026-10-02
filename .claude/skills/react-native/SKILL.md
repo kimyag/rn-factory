@@ -6,6 +6,7 @@ description: React Native UI patterns for this repo. Use for any UI work in apps
 # React Native patterns
 
 Rules for UI code in `apps/*`, `packages/ui`, and `packages/screens`, as bad/good pairs.
+Tokens, components, and the color rule are in `packages/ui/DESIGN.md`. Read it first.
 The Expo plugin skills cover lists vs. `ScrollView`, theme token structure,
 Expo Router and typed routes, safe areas, platform files, keyboard, animation,
 React Compiler and memoization, and labels for icon-only controls. Use them for

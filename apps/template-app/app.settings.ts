@@ -7,9 +7,21 @@ const settings: AppSettings = {
     ios: 'com.example.templateapp',
     android: 'com.example.templateapp',
   },
-  colors: {
-    primary: '#208AEF',
-    background: '#FFFFFF',
+  appColor: {
+    light: '#C8372D',
+    dark: '#F0644E',
+  },
+  fonts: {
+    title: {
+      family: 'Newsreader28pt-Medium',
+      file: './assets/fonts/Newsreader28pt-Medium.ttf',
+      weight: 500,
+    },
+    mono: {
+      family: 'IBMPlexMono-Regular',
+      file: './assets/fonts/IBMPlexMono-Regular.ttf',
+      weight: 400,
+    },
   },
   privacyUrl: 'https://example.com/PRIVACY_URL_PLACEHOLDER',
   modules: {
