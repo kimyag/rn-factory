@@ -7,8 +7,12 @@ description: React Native UI patterns for this repo. Use for any UI work in apps
 
 Rules for UI code in `apps/*` and `packages/ui`, as bad/good pairs.
 The Expo plugin skills cover lists vs. `ScrollView`, theme token structure,
-Expo Router and typed routes, safe areas, platform files, keyboard, and
-animation. Use them for those topics. This file does not repeat them.
+Expo Router and typed routes, safe areas, platform files, keyboard, animation,
+React Compiler and memoization, and labels for icon-only controls. Use them for
+those topics. This file does not repeat them.
+
+The React Compiler is on (`experiments.reactCompiler` in `app.json`). Use
+`useMemo`, `useCallback`, or `React.memo` only for a measured performance problem.
 
 ## 1. Derived state: compute during render
 Bad:
@@ -48,22 +52,7 @@ async function onSave() {
 ```
 Why: effects are for syncing with systems outside React, not for reacting to clicks.
 
-## 4. Re-renders: no manual memo
-Bad:
-```tsx
-const onPress = useCallback(() => open(id), [id]);
-const total = useMemo(() => sum(items), [items]);
-export default memo(Row);
-```
-Good:
-```tsx
-const onPress = () => open(id);
-const total = sum(items);
-export default Row;
-```
-Why: the React Compiler is on (`experiments.reactCompiler` in `app.json`) and memoizes for us; add memo only for a measured problem or where an Expo plugin skill requires it (gestures).
-
-## 5. List rows: a row component, stable keys, static styles
+## 4. List rows: a row component, stable keys, static styles
 This overrides the Expo plugin's inline-style default, for list items only.
 
 Bad:
@@ -85,7 +74,7 @@ const styles = StyleSheet.create({ row: { flexDirection: 'row' } });
 ```
 Why: index keys break row state on insert and delete; inline objects are rebuilt for every row on every render.
 
-## 6. Images: expo-image with a size
+## 5. Images: expo-image with a size
 Bad:
 ```tsx
 <Image source={{ uri }} />
@@ -97,7 +86,7 @@ const styles = StyleSheet.create({ cover: { width: '100%', aspectRatio: 16 / 9 }
 ```
 Why: remote images have no intrinsic size; without one they render at 0×0 or shift the layout when they load.
 
-## 7. Images in recycling lists: recyclingKey
+## 6. Images in recycling lists (if FlashList is added): recyclingKey
 Bad:
 ```tsx
 <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
@@ -108,18 +97,7 @@ Good:
 ```
 Why: FlashList reuses row views; without the key the previous row's image shows until the new one loads.
 
-## 8. Accessibility: label icon-only controls
-Bad:
-```tsx
-<Pressable onPress={onClose}><CloseIcon /></Pressable>
-```
-Good:
-```tsx
-<Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={closeLabel}><CloseIcon /></Pressable>
-```
-Why: with no text inside, the screen reader announces only "button". The label comes from a translation key.
-
-## 9. Accessibility: meaningful images, headers, grouped rows
+## 7. Accessibility: meaningful images, headers, grouped rows
 Bad:
 ```tsx
 <Image source={{ uri: user.photoUrl }} style={styles.avatar} />
@@ -134,7 +112,7 @@ Good:
 ```
 Why: `expo-image` is hidden from screen readers by default; headers let users jump between sections; a grouped row is read once.
 
-## 10. No pass-through wrapper components
+## 8. No pass-through wrapper components
 Bad:
 ```tsx
 const BodyText = (props: TextProps) => <Text {...props} />;
