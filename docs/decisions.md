@@ -13,3 +13,6 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Packages ship TypeScript source; Node 22.18+ required | No build step; Node strips types when `app.config.ts` loads `@factory/core`. |
 | 2026-10-02 | App settings validated with `zod`; `AppSettings` type derived from the schema | One source for the type and the runtime check. |
 | 2026-10-02 | Lint for `packages/*` tracked as its own issue (#20) | `expo lint` only covers apps; the gap must not stay open. |
+| 2026-10-02 | React Native patterns live in `.claude/skills/react-native/SKILL.md`; `AGENTS.md` keeps short must-rules and points to it | Short `AGENTS.md`; the skill loads only for UI work, and agents without skill support still read the file. |
+| 2026-10-02 | The skill covers only what the Expo plugin does not; list items use `StyleSheet`, overriding the plugin's inline-style default | No duplicate guidance; inline objects in rows are rebuilt on every render. |
+| 2026-10-02 | Theme token and translation examples join the skill in #3 and #7 | Do not invent APIs before those issues decide them. |
