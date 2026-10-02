@@ -62,3 +62,5 @@ pnpm lint                       # lint
   and a one-line reason. Wait for my answer.
 - At the end of each task: a summary of max 5 lines and the exact commands
   to check the result.
+
+- Do not use git worktrees. Work in the main checkout and switch branches with `git switch`.
