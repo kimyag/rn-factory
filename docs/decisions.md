@@ -22,3 +22,12 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | App code lives in `src/feature/`; `src/app/` holds only thin route files | One clear rule for where code goes. |
 | 2026-10-02 | Removed template-only `@expo/ui`, `expo-glass-effect`, `expo-symbols`, `expo-device`; kept `expo-web-browser` | Nothing uses them; `expo-web-browser` opens the privacy link in #4. |
 | 2026-10-02 | Placeholder UI text is literal English until #7 | No translation API yet; #7 lists the strings to replace. |
+| 2026-10-02 | Each app owns its `_layout.tsx` and `Stack`; `@factory/app` gives `<FactoryProvider settings>` (theme, navigation theme, fonts, onboarding guard); no shared root layout | The app controls its navigation; shared setup stays one typed component. |
+| 2026-10-02 | House style for every app: neutrals, 4 px grid, 2 px corners, chamfered primary Button, 150/400 ms motion (#25) | One look across apps; values in `packages/ui/DESIGN.md`. |
+| 2026-10-02 | The app color (`appColor: { light, dark }`) is only for achievement; the primary Button is ink; tokens `paper`, `ink`, `inkMuted`, `line`, `achievement`, `onAchievement` | Keeps the app color meaningful, and the names show the rule. |
+| 2026-10-02 | Settings validation checks app color contrast: 3:1 on paper and 4.5:1 for the dot on it, in both modes | Bad colors stop the config instead of shipping. |
+| 2026-10-02 | Font roles `title` and `mono`, each `'system'` or font files in the app folder, embedded with `expo-font` and also loaded at runtime | Brand type without files in packages; works in builds, Expo Go, and web. |
+| 2026-10-02 | Components are `Screen`, `Text`, `Button`, `Mark`; add one only when the same UI appears twice | Keep the design system small. |
+| 2026-10-02 | Styles come from `createStyles((theme) => …)`; the light/dark override is in memory until #6 and also sets `Appearance` on iOS and Android | Static styles per mode; native UI matches the app. |
+| 2026-10-02 | Added `react-native-svg` for the chamfered Button and the Mark | One drawing path for iOS, Android, and web. |
+| 2026-10-02 | Keep platform push/back transitions; 150 ms fades inside screens | Navigation feels native. |

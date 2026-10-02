@@ -1,6 +1,46 @@
 import { z } from 'zod';
 
+import { contrastRatio, neutrals } from './color.ts';
+
 const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'must be a hex color like #1A2B3C');
+
+const appColor = z
+  .strictObject({ light: hexColor, dark: hexColor })
+  .superRefine((color, ctx) => {
+    for (const scheme of ['light', 'dark'] as const) {
+      const { paper } = neutrals[scheme];
+      const onPaper = contrastRatio(color[scheme], paper);
+      if (onPaper < 3) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [scheme],
+          message: `needs at least 3:1 contrast on the ${scheme} background ${paper} (now ${onPaper.toFixed(2)}:1)`,
+        });
+      }
+      const dot = contrastRatio(paper, color[scheme]);
+      if (dot < 4.5) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [scheme],
+          message: `the ${paper} dot on it needs at least 4.5:1 contrast (now ${dot.toFixed(2)}:1)`,
+        });
+      }
+    }
+  });
+
+const customFont = z.strictObject({
+  family: z.string().trim().min(1, 'must be the PostScript name inside the font file'),
+  file: z
+    .string()
+    .regex(/^\.\/.+\.(ttf|otf)$/, 'must be a ./path to a .ttf or .otf file in the app folder'),
+  weight: z
+    .number()
+    .min(100, 'must be 100, 200, … or 900')
+    .max(900, 'must be 100, 200, … or 900')
+    .multipleOf(100, 'must be 100, 200, … or 900'),
+});
+
+const fontRole = z.union([z.literal('system'), customFont]);
 
 export const appSettingsSchema = z.strictObject({
   name: z.string().trim().min(1, 'must not be empty'),
@@ -18,10 +58,8 @@ export const appSettingsSchema = z.strictObject({
         'must be a package name like com.example.app',
       ),
   }),
-  colors: z.strictObject({
-    primary: hexColor,
-    background: hexColor,
-  }),
+  appColor,
+  fonts: z.strictObject({ title: fontRole, mono: fontRole }),
   privacyUrl: z.url({ protocol: /^https$/, error: 'must be an https URL' }),
   modules: z.strictObject({
     payments: z.boolean(),
@@ -30,14 +68,25 @@ export const appSettingsSchema = z.strictObject({
 });
 
 export type AppSettings = z.infer<typeof appSettingsSchema>;
+export type FontRole = z.infer<typeof fontRole>;
+export type CustomFont = z.infer<typeof customFont>;
+
+function describe(issue: z.core.$ZodIssue): string[] {
+  if (issue.code === 'invalid_union') {
+    const branches = issue.errors.filter((branch) => branch.some((inner) => inner.path.length > 0));
+    if (branches.length > 0) {
+      return branches.flat().map((inner) => describe({ ...inner, path: [...issue.path, ...inner.path] })).flat();
+    }
+    return [`  - ${issue.path.join('.')}: must be 'system' or { family, file, weight }`];
+  }
+  return [`  - ${issue.path.join('.') || '(root)'}: ${issue.message}`];
+}
 
 export function validateSettings(input: unknown): AppSettings {
   const result = appSettingsSchema.safeParse(input);
   if (result.success) {
     return result.data;
   }
-  const problems = result.error.issues.map(
-    (issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`,
-  );
+  const problems = result.error.issues.flatMap(describe);
   throw new Error(`Invalid app settings (app.settings.ts):\n${problems.join('\n')}`);
 }

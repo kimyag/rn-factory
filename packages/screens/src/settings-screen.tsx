@@ -1,18 +1,46 @@
+import { Button, createStyles, Screen, Text, useThemeMode, type ThemeMode } from '@factory/ui';
 import { Link } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
+
+const modes: { mode: ThemeMode; label: string }[] = [
+  { mode: 'system', label: 'System' },
+  { mode: 'light', label: 'Light' },
+  { mode: 'dark', label: 'Dark' },
+];
 
 export function SettingsScreen() {
+  const { mode, setMode } = useThemeMode();
+  const styles = useStyles();
+
   return (
-    <View style={styles.container}>
+    <Screen>
       <Text>Settings come in #4.</Text>
-    </View>
+      <View style={styles.row}>
+        {modes.map((option) => (
+          <Button
+            key={option.mode}
+            title={option.label}
+            variant={option.mode === mode ? 'primary' : 'secondary'}
+            selected={option.mode === mode}
+            onPress={() => setMode(option.mode)}
+          />
+        ))}
+      </View>
+    </Screen>
   );
 }
 
 export function SettingsButton() {
-  return <Link href="/settings">Settings</Link>;
+  const styles = useStyles();
+
+  return (
+    <Link href="/settings" style={styles.link}>
+      Settings
+    </Link>
+  );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
+const useStyles = createStyles((theme) => ({
+  row: { flexDirection: 'row', gap: theme.spacing.gap },
+  link: { ...theme.type.body, color: theme.colors.ink },
+}));
