@@ -32,3 +32,4 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Added `react-native-svg` for the chamfered Button and the Mark | One drawing path for iOS, Android, and web. |
 | 2026-10-02 | Keep platform push/back transitions; 150 ms fades inside screens | Navigation feels native. |
 | 2026-10-02 | One ESLint config at the repo root; `pnpm lint` runs `eslint .` in every workspace package | New packages are linted without extra setup; same rules as the app. |
+| 2026-10-02 | Git worktrees only when I ask for one; remove it after its PR is merged | Branches stay switchable in the main checkout; a worktree is fine for isolated agent work. |

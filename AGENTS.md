@@ -67,4 +67,4 @@ pnpm lint                       # lint
 - At the end of each task: a summary of max 5 lines and the exact commands
   to check the result.
 
-- Do not use git worktrees. Work in the main checkout and switch branches with `git switch`.
+- Do not use git worktrees unless I ask for one. If I ask, remove the worktree after its PR is merged.
