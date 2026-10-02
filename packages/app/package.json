@@ -6,7 +6,8 @@
   "main": "src/index.ts",
   "dependencies": {
     "@factory/core": "workspace:*",
-    "@factory/ui": "workspace:*"
+    "@factory/ui": "workspace:*",
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
     "@types/react": "*",

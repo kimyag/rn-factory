@@ -22,6 +22,9 @@ export function FactoryProvider({ settings, fontFiles = {}, children }: FactoryP
   const [fontsLoaded, fontError] = useFonts(fontsToLoad(settings, fontFiles));
   const ready = fontsLoaded || fontError !== null;
 
+  // The providers below read stored values synchronously on their first render,
+  // and their effects (Appearance) run before this one, so the splash hides
+  // only after the stored theme and onboarding state are in place.
   useEffect(() => {
     if (ready) {
       void SplashScreen.hideAsync();

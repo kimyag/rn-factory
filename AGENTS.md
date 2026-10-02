@@ -48,6 +48,7 @@ pnpm lint                       # lint
 - Before UI work in `apps/*`, `packages/ui`, or `packages/screens`, read
   `.claude/skills/react-native/SKILL.md` and follow it.
 - Long lists use `FlatList`, never `ScrollView` with `map`.
+- Persist app state only with `storedValue` from `@factory/core/storage`, never with `localStorage` or a storage library directly.
 - No hardcoded colors, spacing, or user-facing text. Use theme tokens and
   translation keys.
 - No `console.log` in commits. No comments that repeat what the code says.

@@ -16,6 +16,11 @@ export default defineConfig([
     settings: { react: { version: reactVersion } },
     rules: {
       'no-console': 'error',
+    },
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/ban-ts-comment': 'error',
     },
