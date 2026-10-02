@@ -164,7 +164,14 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      eslint:
+        specifier: ^9.39.5
+        version: 9.39.5(supports-color@8.1.1)
+      eslint-config-expo:
+        specifier: ~57.0.2
+        version: 57.0.2(eslint@9.39.5(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
 
   apps/template-app:
     dependencies:
@@ -244,12 +251,6 @@ importers:
       '@types/react':
         specifier: ~19.2.2
         version: 19.2.18
-      eslint:
-        specifier: ^9.39.5
-        version: 9.39.5(supports-color@8.1.1)
-      eslint-config-expo:
-        specifier: ~57.0.2
-        version: 57.0.2(eslint@9.39.5(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -6554,8 +6555,8 @@ snapshots:
       '@babel/parser': 7.29.9
       eslint: 9.39.5(supports-color@8.1.1)
       hermes-parser: 0.25.1
-      zod: 3.25.76
-      zod-validation-error: 4.0.2(zod@3.25.76)
+      zod: 4.6.5
+      zod-validation-error: 4.0.2(zod@4.6.5)
     transitivePeerDependencies:
       - supports-color
 
@@ -9057,9 +9058,9 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@4.0.2(zod@3.25.76):
+  zod-validation-error@4.0.2(zod@4.6.5):
     dependencies:
-      zod: 3.25.76
+      zod: 4.6.5
 
   zod@3.25.76: {}
 

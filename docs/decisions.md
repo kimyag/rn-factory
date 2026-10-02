@@ -31,3 +31,4 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Styles come from `createStyles((theme) => …)`; the light/dark override is in memory until #6 and also sets `Appearance` on iOS and Android | Static styles per mode; native UI matches the app. |
 | 2026-10-02 | Added `react-native-svg` for the chamfered Button and the Mark | One drawing path for iOS, Android, and web. |
 | 2026-10-02 | Keep platform push/back transitions; 150 ms fades inside screens | Navigation feels native. |
+| 2026-10-02 | One ESLint config at the repo root; `pnpm lint` runs `eslint .` in every workspace package | New packages are linted without extra setup; same rules as the app. |

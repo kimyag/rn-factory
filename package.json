@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r --no-bail exec eslint ."
   },
   "keywords": [],
   "author": "",
@@ -22,5 +22,9 @@
     }
   },
   "packageManager": "pnpm@12.8.1",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2"
+  }
 }
