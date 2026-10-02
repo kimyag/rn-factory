@@ -3,15 +3,16 @@
 The single source of rules for this repo. Read it before every task.
 
 ## Stack
-- pnpm monorepo, TypeScript strict.
+- pnpm monorepo, TypeScript strict, Node 22.18+ (`.nvmrc`).
+- Packages ship TypeScript source, no build step.
 - Expo managed workflow with Continuous Native Generation (CNG), Expo Router.
 - Expo changes every SDK. Before using an Expo API, read the docs for the SDK
   major in the app's `package.json`: `https://docs.expo.dev/versions/v<major>.0.0/`.
 - Goal: each new app is one settings file plus one feature folder.
 
 ## Folder map
-- `apps/<app>/` – one app: its settings file and its feature folder.
-- `packages/core` – app settings schema and shared logic.
+- `apps/<app>/` – one app: `app.settings.ts` and its feature folder.
+- `packages/core` – `@factory/core`: app settings schema and shared logic.
 - `packages/ui` – theme tokens and shared components.
 - `packages/payments` – RevenueCat module, on or off from app settings.
 - `docs/decisions.md` – decision log.
@@ -33,8 +34,11 @@ pnpm lint                       # lint
 - When I make a decision, add one line to `docs/decisions.md`.
 
 ## Code rules
-- Add dependencies with `npx expo install` inside the app folder.
+- Add dependencies with `npx expo install` inside the app folder, or
+  `pnpm --filter @factory/<pkg> add` for a package.
   Ask me before you add any new dependency.
+- Relative imports in `packages/*`, `app.config.ts`, and `app.settings.ts`
+  use the `.ts` extension. Node loads these files directly.
 - Do not create or edit `ios/` or `android/`. Use app config and config plugins.
 - TypeScript strict. No `any`, no `@ts-ignore`.
 - No `useEffect` or `useState` for values you can compute during render.
