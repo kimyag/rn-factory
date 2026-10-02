@@ -28,7 +28,10 @@ pnpm install                    # install
 pnpm --filter <app> start       # start the dev server
 pnpm typecheck                  # typecheck
 pnpm lint                       # lint
+pnpm eas:config                 # write apps/*/eas.json from app settings (never edit eas.json)
 ```
+Daily development uses the `development` build (dev client): build it once with
+`npx eas-cli build --profile development --platform android` (or `ios` for the simulator), then `pnpm --filter <app> start`.
 
 ## Workflow
 - One issue, one branch, one PR. The PR says `Closes #<issue>`.

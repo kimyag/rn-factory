@@ -42,6 +42,16 @@ const customFont = z.strictObject({
 
 const fontRole = z.union([z.literal('system'), customFont]);
 
+export function isPlaceholder(value: string): boolean {
+  return /^[A-Z0-9_]+_PLACEHOLDER$/.test(value);
+}
+
+function realOrPlaceholder(pattern: RegExp, message: string) {
+  return z
+    .string()
+    .refine((value) => isPlaceholder(value) || pattern.test(value), `${message} or a NAME_PLACEHOLDER`);
+}
+
 export const appSettingsSchema = z.strictObject({
   name: z.string().trim().min(1, 'must not be empty'),
   slug: z
@@ -64,6 +74,24 @@ export const appSettingsSchema = z.strictObject({
   modules: z.strictObject({
     payments: z.boolean(),
     analytics: z.boolean(),
+  }),
+  eas: z.strictObject({
+    owner: realOrPlaceholder(/^[a-z0-9][a-z0-9_-]*$/, 'must be your Expo username or organization'),
+    projectId: realOrPlaceholder(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      'must be the EAS project ID (a UUID)',
+    ),
+  }),
+  stores: z.strictObject({
+    apple: z.strictObject({
+      teamId: realOrPlaceholder(/^[A-Z0-9]{10}$/, 'must be the 10-character Apple Team ID'),
+      ascAppId: realOrPlaceholder(/^\d+$/, 'must be the numeric App Store Connect app ID'),
+    }),
+    google: z.strictObject({
+      serviceAccountKeyPath: z
+        .string()
+        .regex(/^\.\/.+\.json$/, 'must be a ./path to the Google service account JSON key'),
+    }),
   }),
 });
 

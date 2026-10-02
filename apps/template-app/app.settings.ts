@@ -28,6 +28,22 @@ const settings: AppSettings = {
     payments: false,
     analytics: false,
   },
+  // Placeholders until #31 (Expo account and EAS project).
+  eas: {
+    owner: 'EXPO_OWNER_PLACEHOLDER',
+    projectId: 'EAS_PROJECT_ID_PLACEHOLDER',
+  },
+  stores: {
+    // Placeholders until #14 (Apple developer account).
+    apple: {
+      teamId: 'APPLE_TEAM_ID_PLACEHOLDER',
+      ascAppId: 'ASC_APP_ID_PLACEHOLDER',
+    },
+    // The key file is not in git; it comes with #15 (Google Play account).
+    google: {
+      serviceAccountKeyPath: './secrets/google-play-service-account.json',
+    },
+  },
 };
 
 export default settings;
