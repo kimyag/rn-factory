@@ -51,3 +51,7 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Packages and apps share only the current language; each reads its own typed text set | Keys never collide and each package is checked on its own. |
 | 2026-10-02 | Device language by default, English fallback; a manual choice (`setChoice`) is stored with `@factory/core/storage`; each language declares its text direction | Covers the override for settings (#4) and leaves room for right-to-left languages. |
 | 2026-10-03 | Plural rules: each language file (`packages/app/src/languages/<code>.ts`) defines its own rule; no `Intl.PluralRules` | Hermes has no `Intl.PluralRules`; no polyfill dependency. |
+| 2026-10-02 | `apps/<app>/eas.json` is generated from `app.settings.ts` by `pnpm eas:config`; CI fails if it is out of date | One source for per-app values; never typed twice. |
+| 2026-10-02 | Daily development uses the `development` profile (dev client, `expo-dev-client`) | Matches production: embedded fonts and native modules Expo Go lacks. |
+| 2026-10-02 | EAS profiles: shared base with Node 22.23.3 and pnpm 12.8.1; development (dev client, iOS simulator), preview (internal APK), production (remote versions, auto-increment) | Node 22.18+ is needed to read `app.config.ts`; build numbers managed by EAS. |
+| 2026-10-02 | Store and EAS IDs are named placeholders in `app.settings.ts`; `eas.json` leaves them out until real | EAS rejects placeholder IDs; #14, #15, #31 track the accounts. |

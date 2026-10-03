@@ -1,4 +1,4 @@
-import { validateSettings, type AppSettings, type CustomFont } from '@factory/core';
+import { isPlaceholder, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import appSettings from './app.settings.ts';
@@ -13,8 +13,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: { ...config.ios, bundleIdentifier: settings.bundleIds.ios },
     android: { ...config.android, package: settings.bundleIds.android },
     plugins: [...(config.plugins ?? []), ...fontPlugin(settings.fonts)],
+    ...easProject(settings.eas, config.extra),
   };
 };
+
+function easProject(eas: AppSettings['eas'], extra: ExpoConfig['extra']): Partial<ExpoConfig> {
+  if (isPlaceholder(eas.owner) || isPlaceholder(eas.projectId)) {
+    return {};
+  }
+  return { owner: eas.owner, extra: { ...extra, eas: { projectId: eas.projectId } } };
+}
 
 function fontPlugin(fonts: AppSettings['fonts']): NonNullable<ExpoConfig['plugins']> {
   const custom = Object.values(fonts).filter((font): font is CustomFont => font !== 'system');

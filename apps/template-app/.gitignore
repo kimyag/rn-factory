@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# store credentials
+secrets/
