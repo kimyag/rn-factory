@@ -42,6 +42,22 @@ const customFont = z.strictObject({
 
 const fontRole = z.union([z.literal('system'), customFont]);
 
+const branding = z.strictObject({
+  assets: z.strictObject({
+    icon: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
+    androidAdaptiveIcon: z.strictObject({
+      foreground: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
+      monochrome: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
+      background: hexColor,
+    }),
+    splash: z.strictObject({
+      image: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
+      darkImage: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
+      imageWidth: z.number().int().min(1).max(1024),
+    }),
+  }),
+});
+
 export function isPlaceholder(value: string): boolean {
   return /^[A-Z0-9_]+_PLACEHOLDER$/.test(value);
 }
@@ -69,6 +85,7 @@ export const appSettingsSchema = z.strictObject({
       ),
   }),
   appColor,
+  branding,
   fonts: z.strictObject({ title: fontRole, mono: fontRole }),
   privacyUrl: z.url({ protocol: /^https$/, error: 'must be an https URL' }),
   contactEmail: z.email('must be an email address'),

@@ -11,6 +11,21 @@ const settings: AppSettings = {
     light: '#C8372D',
     dark: '#F0644E',
   },
+  branding: {
+    assets: {
+      icon: './assets/images/icon.png',
+      androidAdaptiveIcon: {
+        foreground: './assets/images/android-icon-foreground.png',
+        monochrome: './assets/images/android-icon-monochrome.png',
+        background: '#F7F6F2',
+      },
+      splash: {
+        image: './assets/images/splash-icon.png',
+        darkImage: './assets/images/splash-icon-dark.png',
+        imageWidth: 76,
+      },
+    },
+  },
   fonts: {
     title: {
       family: 'Newsreader28pt-Medium',
