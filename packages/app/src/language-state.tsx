@@ -1,16 +1,10 @@
+import { storedValue } from '@factory/core/storage';
 import { useLocales, type Locale } from 'expo-localization';
 import { createContext, use, useState, type ReactNode } from 'react';
+import { z } from 'zod';
 
-import {
-  directions,
-  format,
-  supportedLanguages,
-  type Language,
-  type Messages,
-  type ParamsArg,
-  type TextDirection,
-  type TextSet,
-} from './text.ts';
+import { isLanguage, languages, type Language, type TextDirection } from './languages/index.ts';
+import { format, type Messages, type ParamsArg, type TextSet } from './text.ts';
 
 export type LanguageChoice = 'system' | Language;
 
@@ -23,21 +17,29 @@ type LanguageState = {
 
 const LanguageContext = createContext<LanguageState | null>(null);
 
-// The choice is in memory until local storage (#6) persists it.
+const storedChoice = storedValue({
+  key: 'language.choice',
+  schema: z.custom<LanguageChoice>(
+    (value) => value === 'system' || (typeof value === 'string' && isLanguage(value)),
+  ),
+  fallback: 'system',
+});
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [choice, setChoice] = useState<LanguageChoice>('system');
+  const [choice, setChoiceState] = useState(() => storedChoice.get());
   const locales = useLocales();
   const language = choice === 'system' ? deviceLanguage(locales) : choice;
 
+  function setChoice(next: LanguageChoice) {
+    storedChoice.set(next);
+    setChoiceState(next);
+  }
+
   return (
-    <LanguageContext value={{ language, direction: directions[language], choice, setChoice }}>
+    <LanguageContext value={{ language, direction: languages[language].direction, choice, setChoice }}>
       {children}
     </LanguageContext>
   );
-}
-
-function isLanguage(code: string | null): code is Language {
-  return supportedLanguages.some((language) => language === code);
 }
 
 function deviceLanguage(locales: Locale[]): Language {

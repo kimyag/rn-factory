@@ -1,15 +1,7 @@
-export const supportedLanguages = ['en', 'tr'] as const;
-
-export type Language = (typeof supportedLanguages)[number];
-export type TextDirection = 'ltr' | 'rtl';
-
-export const directions: Record<Language, TextDirection> = {
-  en: 'ltr',
-  tr: 'ltr',
-};
+import { languages, type Language, type PluralCategory } from './languages/index.ts';
 
 export type PluralForms = { other: string } & Partial<
-  Record<Exclude<Intl.LDMLPluralRule, 'other'>, string>
+  Record<Exclude<PluralCategory, 'other'>, string>
 >;
 
 type Message = string | PluralForms;
@@ -48,8 +40,7 @@ function formatNumber(value: number, language: Language): string {
 }
 
 function pluralForm(forms: PluralForms, language: Language, count: number): string {
-  const category = new Intl.PluralRules(language).select(count);
-  return forms[category] ?? forms.other;
+  return forms[languages[language].plural(count)] ?? forms.other;
 }
 
 export function format(
