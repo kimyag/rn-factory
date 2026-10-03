@@ -2,6 +2,7 @@ export { Button } from './button.tsx';
 export { createStyles } from './create-styles.ts';
 export { Mark } from './mark.tsx';
 export type { MarkState } from './mark.tsx';
+export { useAchievementDuration } from './motion.ts';
 export { Screen } from './screen.tsx';
 export { Text } from './text.tsx';
 export type { TextVariant } from './text.tsx';

@@ -12,6 +12,7 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 
 import { createStyles } from './create-styles.ts';
+import { useAchievementDuration } from './motion.ts';
 import { useTheme } from './theme-provider.tsx';
 
 export type MarkState = 'empty' | 'active' | 'complete' | 'loading';
@@ -25,6 +26,7 @@ export function Mark({ state, accessibilityLabel }: MarkProps) {
   const theme = useTheme();
   const styles = useStyles();
   const reduceMotion = useReducedMotion();
+  const achievementDuration = useAchievementDuration();
   const { size, dot, orbit } = theme.mark;
   const center = size / 2;
   const loading = state === 'loading';
@@ -55,7 +57,7 @@ export function Mark({ state, accessibilityLabel }: MarkProps) {
   }));
   const fill = useAnimatedStyle(() => ({
     opacity: withTiming(complete ? 1 : 0, {
-      duration: theme.motion.achieve,
+      duration: achievementDuration,
       easing: Easing.out(Easing.ease),
     }),
   }));
