@@ -1,4 +1,5 @@
 import { FactoryProvider, useOnboarding, type FontFiles } from '@factory/app';
+import { RouteErrorBoundary } from '@factory/screens';
 import { Stack } from 'expo-router';
 
 import settings from '../../app.settings.ts';
@@ -20,7 +21,21 @@ function AppStack() {
   const { completed } = useOnboarding();
 
   return (
-    <Stack>
+    <Stack
+      layout={({ state, navigation, children }) => (
+        <RouteErrorBoundary
+          recoveryKey={state.routes[state.index]?.key ?? ''}
+          onGoToStart={() =>
+            navigation.reset({
+              index: 0,
+              routes: [{ name: completed ? '(feature)' : '(onboarding)/onboarding' }],
+            })
+          }
+        >
+          {children}
+        </RouteErrorBoundary>
+      )}
+    >
       <Stack.Protected guard={!completed}>
         <Stack.Screen name="(onboarding)/onboarding" options={{ headerShown: false }} />
       </Stack.Protected>
