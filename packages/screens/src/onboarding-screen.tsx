@@ -1,4 +1,5 @@
-import { useOnboarding, useText } from '@factory/app';
+import { useAppSettings, useOnboarding, useTelemetry, useText } from '@factory/app';
+import { needsAnalyticsChoice } from '@factory/core/telemetry';
 import {
   Button,
   createStyles,
@@ -35,8 +36,12 @@ export type OnboardingPages =
   | [OnboardingPage, OnboardingPage, OnboardingPage]
   | [OnboardingPage, OnboardingPage, OnboardingPage, OnboardingPage];
 
+type Exit = 'pages' | 'skip';
+
 export function OnboardingScreen({ pages }: { pages: OnboardingPages }) {
   const { complete } = useOnboarding();
+  const settings = useAppSettings();
+  const { choice, setChoice, track } = useTelemetry();
   const t = useText(text);
   const { spacing } = useTheme();
   const styles = useStyles();
@@ -45,18 +50,42 @@ export function OnboardingScreen({ pages }: { pages: OnboardingPages }) {
   const list = useRef<FlatList<OnboardingPage>>(null);
   const [pageWidth, setPageWidth] = useState(0);
   const [index, setIndex] = useState(0);
-  const [finishing, setFinishing] = useState(false);
+  // How the user reached the analytics question; null while the pages show.
+  const [asking, setAsking] = useState<Exit | null>(null);
+  const [leaving, setLeaving] = useState<Exit | null>(null);
   const last = index === pages.length - 1;
   const pageStyle = [styles.page, { width: pageWidth }];
 
-  function finish() {
-    setFinishing(true);
+  // Finishing the pages is the achievement moment; skipping them has no motion.
+  function leave(exit: Exit) {
+    setLeaving(exit);
+    if (exit === 'skip') {
+      complete();
+      return;
+    }
+    void track('onboarding_completed');
     setTimeout(complete, achievementDuration);
+  }
+
+  function end(exit: Exit) {
+    if (needsAnalyticsChoice(settings.modules.analytics, choice)) {
+      setAsking(exit);
+      return;
+    }
+    leave(exit);
+  }
+
+  function choose(value: boolean) {
+    if (asking === null) {
+      return;
+    }
+    setChoice(value);
+    leave(asking);
   }
 
   function next() {
     if (last) {
-      finish();
+      end('pages');
       return;
     }
     list.current?.scrollToIndex({ index: index + 1 });
@@ -72,29 +101,38 @@ export function OnboardingScreen({ pages }: { pages: OnboardingPages }) {
   return (
     <Screen style={{ paddingTop: insets.top + spacing.edge }}>
       <View style={styles.top}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={complete}
-          disabled={finishing}
-          hitSlop={spacing.gapWide}
-        >
-          <Text>{t('onboarding.skip')}</Text>
-        </Pressable>
+        {asking === null && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => end('skip')}
+            disabled={leaving !== null}
+            hitSlop={spacing.gapWide}
+          >
+            <Text>{t('onboarding.skip')}</Text>
+          </Pressable>
+        )}
       </View>
-      <FlatList
-        ref={list}
-        style={styles.pager}
-        data={pages}
-        horizontal
-        pagingEnabled
-        scrollEnabled={!finishing}
-        showsHorizontalScrollIndicator={false}
-        onLayout={(event) => setPageWidth(event.nativeEvent.layout.width)}
-        onMomentumScrollEnd={onScrollEnd}
-        getItemLayout={(_, item) => ({ length: pageWidth, offset: pageWidth * item, index: item })}
-        keyExtractor={(page) => page.title}
-        renderItem={({ item }) => <Page page={item} style={pageStyle} />}
-      />
+      {asking === null ? (
+        <FlatList
+          ref={list}
+          style={styles.pager}
+          data={pages}
+          horizontal
+          pagingEnabled
+          scrollEnabled={leaving === null}
+          showsHorizontalScrollIndicator={false}
+          onLayout={(event) => setPageWidth(event.nativeEvent.layout.width)}
+          onMomentumScrollEnd={onScrollEnd}
+          getItemLayout={(_, item) => ({ length: pageWidth, offset: pageWidth * item, index: item })}
+          keyExtractor={(page) => page.title}
+          renderItem={({ item }) => <Page page={item} style={pageStyle} />}
+        />
+      ) : (
+        <View style={styles.question}>
+          <Text variant="title">{t('analytics.title')}</Text>
+          <Text>{t('analytics.explanation')}</Text>
+        </View>
+      )}
       <View
         style={styles.marks}
         accessible
@@ -103,15 +141,32 @@ export function OnboardingScreen({ pages }: { pages: OnboardingPages }) {
         {pages.map((page, item) => (
           <Mark
             key={page.title}
-            state={finishing ? 'complete' : item === index ? 'active' : 'empty'}
+            state={leaving === 'pages' ? 'complete' : item === index ? 'active' : 'empty'}
           />
         ))}
       </View>
-      <Button
-        title={last ? t('onboarding.done') : t('onboarding.next')}
-        onPress={next}
-        disabled={finishing}
-      />
+      {asking === null ? (
+        <Button
+          title={last ? t('onboarding.done') : t('onboarding.next')}
+          onPress={next}
+          disabled={leaving !== null}
+        />
+      ) : (
+        <View style={styles.choices}>
+          <Button
+            variant="secondary"
+            title={t('analytics.share')}
+            onPress={() => choose(true)}
+            disabled={leaving !== null}
+          />
+          <Button
+            variant="secondary"
+            title={t('analytics.dontShare')}
+            onPress={() => choose(false)}
+            disabled={leaving !== null}
+          />
+        </View>
+      )}
     </Screen>
   );
 }
@@ -134,6 +189,8 @@ const useStyles = createStyles((theme) => ({
   top: { alignItems: 'flex-end' },
   pager: { flex: 1 },
   page: { justifyContent: 'center', gap: theme.spacing.gapWide },
+  question: { flex: 1, justifyContent: 'center', gap: theme.spacing.gapWide },
   image: { width: '100%', aspectRatio: 4 / 3 },
   marks: { flexDirection: 'row', justifyContent: 'center', gap: theme.spacing.gap },
+  choices: { gap: theme.spacing.gapWide },
 }));

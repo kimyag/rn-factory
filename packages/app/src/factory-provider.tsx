@@ -9,6 +9,7 @@ import { useEffect, type ReactNode } from 'react';
 import { AppSettingsProvider } from './app-settings.tsx';
 import { LanguageProvider } from './language-state.tsx';
 import { OnboardingProvider } from './onboarding-state.tsx';
+import { TelemetryProvider } from './telemetry-state.tsx';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -42,7 +43,7 @@ export function FactoryProvider({ settings, fontFiles = {}, children }: FactoryP
       <LanguageProvider>
         <ThemeProvider settings={settings}>
           <NavigationTheme>
-            <OnboardingProvider>{children}</OnboardingProvider>
+            <TelemetryProvider><OnboardingProvider>{children}</OnboardingProvider></TelemetryProvider>
           </NavigationTheme>
         </ThemeProvider>
       </LanguageProvider>

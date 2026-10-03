@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./telemetry": "./src/telemetry.ts",
     "./storage": {
       "react-native": "./src/storage.ts",
       "default": "./src/storage.web.ts"
@@ -15,6 +16,16 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "expo-sqlite": "*"
+    "@sentry/react-native": "*",
+    "expo-sqlite": "*",
+    "posthog-react-native": "*"
+  },
+  "peerDependenciesMeta": {
+    "@sentry/react-native": {
+      "optional": true
+    },
+    "posthog-react-native": {
+      "optional": true
+    }
   }
 }

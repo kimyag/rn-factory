@@ -91,7 +91,21 @@ export const appSettingsSchema = z.strictObject({
   contactEmail: z.email('must be an email address'),
   modules: z.strictObject({
     payments: z.boolean(),
+    crashReports: z.boolean(),
     analytics: z.boolean(),
+  }),
+  telemetry: z.strictObject({
+    sentryOrganization: z.string().trim().min(1),
+    sentryProject: z.string().trim().min(1),
+    sentryDsn: z.string().refine(
+      (value) => isPlaceholder(value) || z.url({ protocol: /^https$/ }).safeParse(value).success,
+      'must be an HTTPS Sentry DSN or a NAME_PLACEHOLDER',
+    ),
+    posthogApiKey: z.string().trim().min(1),
+    posthogHost: z.string().refine(
+      (value) => isPlaceholder(value) || z.url({ protocol: /^https$/ }).safeParse(value).success,
+      'must be an HTTPS PostHog host or a NAME_PLACEHOLDER',
+    ),
   }),
   eas: z.strictObject({
     owner: realOrPlaceholder(/^[a-z0-9][a-z0-9_-]*$/, 'must be your Expo username or organization'),
