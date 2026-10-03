@@ -62,3 +62,4 @@ One line per decision. Newest at the bottom.
 | 2026-10-03 | "Rate the app" opens the store's write-review page (no new dependency); on iOS it waits for the App Store app ID (#14) | Apple recommends this for an explicit button; the in-app prompt may show nothing. |
 | 2026-10-03 | The app version comes from `expo-constants` (`expoConfig.version`) | Already installed and correct in Expo Go; no build number. |
 | 2026-10-03 | Shared screens read app settings with `useAppSettings()` from `FactoryProvider`; `contactEmail` added to the settings | One typed source for privacy URL, contact address, store IDs, and modules. |
+| 2026-10-03 | One shared error boundary wraps all root Stack route scenes; retry remounts the failed scene, and a repeated immediate failure can reset to onboarding or the feature start | Keep the navigator and providers alive during recovery while offering a safe route after repeated failure. |
