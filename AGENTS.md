@@ -71,4 +71,6 @@ Daily development uses the `development` build (dev client): build it once with
 - At the end of each task: a summary of max 5 lines and the exact commands
   to check the result.
 
-- Do not use git worktrees unless I ask for one. If I ask, remove the worktree after its PR is merged.
+- Agents always work in a git worktree, branched from main. Never change
+  the branch or files of the main checkout: it is only for the human
+  (testing, merging, pulling). Remove the worktree after its PR is merged.
