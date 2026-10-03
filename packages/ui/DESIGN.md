@@ -32,9 +32,10 @@ and `onAchievement` at 4.5:1 on `achievement`, in both modes.
 - `Text`: all text. `variant` picks the role; `title` is read as a header.
 - `Button`: `primary` (ink, chamfered) for the one main action on a screen,
   `secondary` (outlined) for the others.
-- `Mark`: a ring with a dot. `empty` (muted), `active`, `complete` (fills with
-  the app color in 400 ms), `loading` (the dot circles inside the ring).
-  Use it for onboarding progress, completion in rows, and loading.
+- `Mark`: a ring with a dot. `empty` (muted), `active` (ink; 150 ms fade between
+  the two), `complete` (fills with the app color in 400 ms), `loading` (the dot
+  circles inside the ring). Use it for onboarding progress, completion in rows,
+  selection in choice rows (`active` = selected, never `complete`), and loading.
 
 **Mark rule:** Mark is the only component with its own motion, and the only
 place the app color fills a shape.

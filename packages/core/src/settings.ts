@@ -71,6 +71,7 @@ export const appSettingsSchema = z.strictObject({
   appColor,
   fonts: z.strictObject({ title: fontRole, mono: fontRole }),
   privacyUrl: z.url({ protocol: /^https$/, error: 'must be an https URL' }),
+  contactEmail: z.email('must be an email address'),
   modules: z.strictObject({
     payments: z.boolean(),
     analytics: z.boolean(),

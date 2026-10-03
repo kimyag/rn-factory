@@ -9,4 +9,6 @@ export function isLanguage(code: string | null): code is Language {
   return code !== null && Object.hasOwn(languages, code);
 }
 
+export const languageCodes = Object.keys(languages).filter(isLanguage);
+
 export type { LanguageDefinition, PluralCategory, TextDirection } from './types.ts';

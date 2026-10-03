@@ -1,38 +1,149 @@
-import { useText } from '@factory/app';
-import { Button, createStyles, Screen, Text, useThemeMode, type ThemeMode } from '@factory/ui';
+import {
+  languageCodes,
+  languages,
+  useAppSettings,
+  useLanguage,
+  useText,
+  type LanguageChoice,
+} from '@factory/app';
+import { isPlaceholder, type AppSettings } from '@factory/core';
+import { createStyles, Mark, Screen, Text, useThemeMode, type ThemeMode } from '@factory/ui';
+import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
-import { View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { Linking, Platform, Pressable, StyleSheet, View, type AccessibilityRole } from 'react-native';
+import type { ReactNode } from 'react';
 
-import type { en } from './text/en.ts';
 import { text } from './text/index.ts';
 
-const modes: { mode: ThemeMode; label: keyof typeof en }[] = [
-  { mode: 'system', label: 'settings.appearance.system' },
-  { mode: 'light', label: 'settings.appearance.light' },
-  { mode: 'dark', label: 'settings.appearance.dark' },
-];
+type Option<T extends string> = { value: T; label: string };
 
 export function SettingsScreen() {
-  const { mode, setMode } = useThemeMode();
   const t = useText(text);
+  const settings = useAppSettings();
+  const { mode, setMode } = useThemeMode();
+  const { choice, setChoice } = useLanguage();
+  const styles = useStyles();
+
+  const themeOptions: Option<ThemeMode>[] = [
+    { value: 'system', label: t('settings.theme.system') },
+    { value: 'light', label: t('settings.theme.light') },
+    { value: 'dark', label: t('settings.theme.dark') },
+  ];
+  const languageOptions: Option<LanguageChoice>[] = [
+    { value: 'system', label: t('settings.language.system') },
+    ...languageCodes.map((code) => ({ value: code, label: languages[code].name })),
+  ];
+  const version = Constants.expoConfig?.version ?? '';
+
+  function rate() {
+    const url = reviewUrl(settings);
+    if (url) {
+      void Linking.openURL(url);
+    }
+  }
+
+  return (
+    <Screen scroll>
+      <Stack.Screen options={{ title: t('settings.title') }} />
+      <Section title={t('settings.theme')}>
+        <ChoiceGroup options={themeOptions} selected={mode} onSelect={setMode} />
+      </Section>
+      <Section title={t('settings.language')}>
+        <ChoiceGroup options={languageOptions} selected={choice} onSelect={setChoice} />
+      </Section>
+      <Section title={t('settings.about')}>
+        <ActionRow
+          label={t('settings.privacy')}
+          role="link"
+          onPress={() => void WebBrowser.openBrowserAsync(settings.privacyUrl)}
+        />
+        <ActionRow
+          label={t('settings.contact')}
+          role="link"
+          onPress={() => void Linking.openURL(`mailto:${settings.contactEmail}`)}
+        />
+        <ActionRow label={t('settings.rate')} role="link" onPress={rate} />
+        {settings.modules.payments && (
+          <ActionRow label={t('settings.restore')} role="button" onPress={restorePurchases} />
+        )}
+        <View style={styles.row} accessible accessibilityLabel={`${t('settings.version')}, ${version}`}>
+          <Text>{t('settings.version')}</Text>
+          <Text variant="mono">{version}</Text>
+        </View>
+      </Section>
+    </Screen>
+  );
+}
+
+// iOS needs the App Store app ID, a placeholder until #14; Android uses the package name.
+function reviewUrl(settings: AppSettings): string | null {
+  if (Platform.OS === 'ios') {
+    const { ascAppId } = settings.stores.apple;
+    return isPlaceholder(ascAppId) ? null : `https://apps.apple.com/app/id${ascAppId}?action=write-review`;
+  }
+  return `https://play.google.com/store/apps/details?id=${settings.bundleIds.android}`;
+}
+
+// Restores purchases once the payments module exists (#9).
+function restorePurchases() {}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
   const styles = useStyles();
 
   return (
-    <Screen>
-      <Stack.Screen options={{ title: t('settings.title') }} />
-      <Text>{t('settings.comingSoon')}</Text>
-      <View style={styles.row}>
-        {modes.map((option) => (
-          <Button
-            key={option.mode}
-            title={t(option.label)}
-            variant={option.mode === mode ? 'primary' : 'secondary'}
-            selected={option.mode === mode}
-            onPress={() => setMode(option.mode)}
-          />
-        ))}
-      </View>
-    </Screen>
+    <View style={styles.section}>
+      <Text variant="caption" accessibilityRole="header">
+        {title}
+      </Text>
+      <View>{children}</View>
+    </View>
+  );
+}
+
+function ChoiceGroup<T extends string>({
+  options,
+  selected,
+  onSelect,
+}: {
+  options: Option<T>[];
+  selected: T;
+  onSelect: (value: T) => void;
+}) {
+  const styles = useStyles();
+
+  return (
+    <View accessibilityRole="radiogroup">
+      {options.map((option) => {
+        const isSelected = option.value === selected;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: isSelected, selected: isSelected }}
+            onPress={() => onSelect(option.value)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <Text>{option.label}</Text>
+            <Mark state={isSelected ? 'active' : 'empty'} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function ActionRow({ label, role, onPress }: { label: string; role: AccessibilityRole; onPress: () => void }) {
+  const styles = useStyles();
+
+  return (
+    <Pressable
+      accessibilityRole={role}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <Text>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -48,6 +159,15 @@ export function SettingsButton() {
 }
 
 const useStyles = createStyles((theme) => ({
-  row: { flexDirection: 'row', gap: theme.spacing.gap },
+  section: { gap: theme.spacing.gap },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.gapWide,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.line,
+  },
+  pressed: { opacity: theme.motion.pressedOpacity },
   link: { ...theme.type.body, color: theme.colors.ink },
 }));
