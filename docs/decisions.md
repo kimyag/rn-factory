@@ -32,7 +32,7 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Added `react-native-svg` for the chamfered Button and the Mark | One drawing path for iOS, Android, and web. |
 | 2026-10-02 | Keep platform push/back transitions; 150 ms fades inside screens | Navigation feels native. |
 | 2026-10-02 | One ESLint config at the repo root; `pnpm lint` runs `eslint .` in every workspace package | New packages are linted without extra setup; same rules as the app. |
-| 2026-10-02 | Git worktrees only when I ask for one; remove it after its PR is merged | Branches stay switchable in the main checkout; a worktree is fine for isolated agent work. |
+| 2026-10-02 | Git worktrees only when I ask for one; remove it after its PR is merged (replaced 2026-10-03, #40) | Branches stay switchable in the main checkout; a worktree is fine for isolated agent work. |
 | 2026-10-02 | Local storage uses `expo-sqlite` (#6), not AsyncStorage or MMKV | Included in Expo Go and in native builds, one new dependency, and it reads synchronously; MMKV is not in Expo Go, AsyncStorage is async only. |
 | 2026-10-02 | The storage code talks only to the Web Storage interface: `expo-sqlite/localStorage/install` on iOS and Android, the browser's `localStorage` on web | One small contract, so a later library change touches one file; the web needs no SQLite worker. |
 | 2026-10-02 | API: `storedValue({ key, schema, fallback, version?, migrate? })` gives `get()` and `set()` | Two synchronous, typed methods; the zod schema gives the type and checks every read. |
@@ -57,3 +57,4 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Store and EAS IDs are named placeholders in `app.settings.ts`; `eas.json` leaves them out until real | EAS rejects placeholder IDs; #14, #15, #31 track the accounts. |
 | 2026-10-03 | `@factory/core/storage` uses expo-sqlite only under the `react-native` export condition (iOS, Android); everything else, including web and its server rendering, gets `storage.web.ts` (browser `localStorage`); `metro.config.js` removed | expo-sqlite's web worker broke the web bundles (#38); the web never needed it. |
 | 2026-10-03 | pnpm uses its default isolated layout; the `node-linker=hoisted` line in `.npmrc` is removed | pnpm 12 reads `nodeLinker` only from `pnpm-workspace.yaml`, so the line was ignored; everything was tested with the isolated layout. |
+| 2026-10-03 | Agents always work in a git worktree branched from main and never change the branch or files of the main checkout; the worktree is removed after its PR is merged (rule in `AGENTS.md`) | The main checkout is only for the human (testing, merging, pulling); agents switching branches there moved files under the running app and put commits on the wrong branch. |
