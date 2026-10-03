@@ -6,5 +6,6 @@ export type { LanguageChoice } from './language-state.tsx';
 export { isLanguage, languageCodes, languages } from './languages/index.ts';
 export type { Language, LanguageDefinition, PluralCategory, TextDirection } from './languages/index.ts';
 export { useOnboarding } from './onboarding-state.tsx';
+export { useTelemetry } from './telemetry-state.tsx';
 export { format } from './text.ts';
 export type { PluralForms, TextSet, Translation } from './text.ts';
