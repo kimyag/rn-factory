@@ -4,14 +4,15 @@ import {
   useAppSettings,
   useLanguage,
   useText,
+  useTelemetry,
   type LanguageChoice,
 } from '@factory/app';
 import { isPlaceholder, type AppSettings } from '@factory/core';
-import { createStyles, Mark, Screen, Text, useThemeMode, type ThemeMode } from '@factory/ui';
+import { createStyles, Mark, Screen, Text, useTheme, useThemeMode, type ThemeMode } from '@factory/ui';
 import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Linking, Platform, Pressable, StyleSheet, View, type AccessibilityRole } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Switch, View, type AccessibilityRole } from 'react-native';
 import type { ReactNode } from 'react';
 
 import { text } from './text/index.ts';
@@ -24,6 +25,8 @@ export function SettingsScreen() {
   const { mode, setMode } = useThemeMode();
   const { choice, setChoice } = useLanguage();
   const styles = useStyles();
+  const theme = useTheme();
+  const analytics = useTelemetry();
 
   const themeOptions: Option<ThemeMode>[] = [
     { value: 'system', label: t('settings.theme.system') },
@@ -47,11 +50,33 @@ export function SettingsScreen() {
     <Screen scroll>
       <Stack.Screen options={{ title: t('settings.title') }} />
       <Section title={t('settings.theme')}>
-        <ChoiceGroup options={themeOptions} selected={mode} onSelect={setMode} />
+        <ChoiceGroup options={themeOptions} selected={mode} onSelect={(value) => {
+          setMode(value);
+          void analytics.track('theme_changed');
+        }} />
       </Section>
       <Section title={t('settings.language')}>
-        <ChoiceGroup options={languageOptions} selected={choice} onSelect={setChoice} />
+        <ChoiceGroup options={languageOptions} selected={choice} onSelect={(value) => {
+          setChoice(value);
+          void analytics.track('language_changed');
+        }} />
       </Section>
+      {settings.modules.analytics && (
+        <Section title={t('analytics.title')}>
+          <Text>{t('analytics.explanation')}</Text>
+          <View style={styles.row}>
+            <Text>{t('analytics.share')}</Text>
+            <Switch
+              accessibilityLabel={t('analytics.share')}
+              value={analytics.choice === true}
+              onValueChange={analytics.setChoice}
+              trackColor={{ false: theme.colors.inkMuted, true: theme.colors.ink }}
+              thumbColor={theme.colors.paper}
+              ios_backgroundColor={theme.colors.inkMuted}
+            />
+          </View>
+        </Section>
+      )}
       <Section title={t('settings.about')}>
         <ActionRow
           label={t('settings.privacy')}

@@ -1,4 +1,8 @@
 export const en = {
+  'analytics.title': 'Usage sharing',
+  'analytics.explanation': 'Share which app features you use with a random ID to help improve the app.',
+  'analytics.share': 'Share',
+  'analytics.dontShare': "Don't share",
   'error.title': 'This screen couldn’t load',
   'error.message': 'Try again to reopen this screen.',
   'error.repeated': 'This screen still couldn’t load. Try again, or go to the start of the app.',
