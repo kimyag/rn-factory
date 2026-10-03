@@ -13,6 +13,7 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
 ## Folder map
 - `apps/<app>/` – one app: `app.settings.ts` and its feature folder `src/feature/`.
   `src/app/` holds the app's `_layout.tsx` and one-line route files; `src/text/` its translations.
+  Onboarding pages: `src/feature/onboarding.tsx` (1–4 pages), images in `assets/onboarding/`.
 - `packages/core` – `@factory/core`: app settings schema and shared logic.
 - `packages/app` – `@factory/app`: `FactoryProvider` (theme, navigation theme,
   fonts, language, onboarding guard) and `useText` for translations.

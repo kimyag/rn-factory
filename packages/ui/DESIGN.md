@@ -41,6 +41,9 @@ place the app color fills a shape.
 
 Add a component only when the same UI appears twice.
 
+**Empty states:** a list with no items shows one short line that says what will appear
+there and, if possible, one action to add the first item. No illustrations by default.
+
 ## Fonts
 Each font role in `app.settings.ts` (`title`, `mono`) is `'system'` or
 `{ family, file, weight }`: the font's PostScript name, a `./assets/fonts/`

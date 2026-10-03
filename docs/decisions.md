@@ -55,3 +55,8 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Daily development uses the `development` profile (dev client, `expo-dev-client`) | Matches production: embedded fonts and native modules Expo Go lacks. |
 | 2026-10-02 | EAS profiles: shared base with Node 22.23.3 and pnpm 12.8.1; development (dev client, iOS simulator), preview (internal APK), production (remote versions, auto-increment) | Node 22.18+ is needed to read `app.config.ts`; build numbers managed by EAS. |
 | 2026-10-02 | Store and EAS IDs are named placeholders in `app.settings.ts`; `eas.json` leaves them out until real | EAS rejects placeholder IDs; #14, #15, #31 track the accounts. |
+| 2026-10-03 | Apps pass onboarding pages from `src/feature/onboarding.tsx` (their own translation keys) to the shared `OnboardingScreen`; the route file re-exports it | Pages stay with the app's feature code and are typechecked; routes stay one line. |
+| 2026-10-03 | Onboarding pages change by swipe (horizontal `FlatList`, no dependency) and by the Next button | Swipe is expected on phones; screen readers use the buttons. |
+| 2026-10-03 | Onboarding images live in each app's `assets/onboarding/` and are passed with `require()` | Content belongs to the app; packages hold no app images. |
+| 2026-10-03 | Finishing onboarding turns all Marks `complete` (400 ms, 150 ms with reduced motion) before the feature opens; Skip saves the flag with no motion | Finishing is the achievement moment; skipping is not. |
+| 2026-10-03 | Empty states: one short line saying what will appear, plus one action to add the first item if possible; no illustrations by default | Clear for first-time users without decoration. |

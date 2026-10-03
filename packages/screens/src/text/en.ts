@@ -1,6 +1,8 @@
 export const en = {
-  'onboarding.title': 'Onboarding',
-  'onboarding.continue': 'Continue',
+  'onboarding.skip': 'Skip',
+  'onboarding.next': 'Next',
+  'onboarding.done': 'Get started',
+  'onboarding.progress': 'Page {current} of {total}',
   'settings.title': 'Settings',
   'settings.comingSoon': 'Settings come in #4.',
   'settings.appearance.system': 'System',
