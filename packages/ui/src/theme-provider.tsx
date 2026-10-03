@@ -1,6 +1,8 @@
 import type { ColorScheme } from '@factory/core';
-import { createContext, use, useState, type ReactNode } from 'react';
+import { storedValue } from '@factory/core/storage';
+import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 import { Appearance, Platform, useColorScheme } from 'react-native';
+import { z } from 'zod';
 
 import { getTheme, type Theme, type ThemeSettings } from './theme.ts';
 
@@ -14,17 +16,26 @@ type ThemeState = {
 
 const ThemeContext = createContext<ThemeState | null>(null);
 
-// The mode is in memory until local storage (#6) persists it.
+const storedMode = storedValue({
+  key: 'theme.mode',
+  schema: z.enum(['system', 'light', 'dark']),
+  fallback: 'system',
+});
+
 export function ThemeProvider({ settings, children }: { settings: ThemeSettings; children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>('system');
+  const [mode, setModeState] = useState<ThemeMode>(() => storedMode.get());
   const systemScheme = useColorScheme();
   const scheme: ColorScheme = mode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : mode;
 
-  function setMode(next: ThemeMode) {
-    setModeState(next);
+  useEffect(() => {
     if (Platform.OS !== 'web') {
-      Appearance.setColorScheme(next === 'system' ? 'unspecified' : next);
+      Appearance.setColorScheme(mode === 'system' ? 'unspecified' : mode);
     }
+  }, [mode]);
+
+  function setMode(next: ThemeMode) {
+    storedMode.set(next);
+    setModeState(next);
   }
 
   return (

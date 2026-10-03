@@ -33,3 +33,16 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Keep platform push/back transitions; 150 ms fades inside screens | Navigation feels native. |
 | 2026-10-02 | One ESLint config at the repo root; `pnpm lint` runs `eslint .` in every workspace package | New packages are linted without extra setup; same rules as the app. |
 | 2026-10-02 | Git worktrees only when I ask for one; remove it after its PR is merged | Branches stay switchable in the main checkout; a worktree is fine for isolated agent work. |
+| 2026-10-02 | Local storage uses `expo-sqlite` (#6), not AsyncStorage or MMKV | Included in Expo Go and in native builds, one new dependency, and it reads synchronously; MMKV is not in Expo Go, AsyncStorage is async only. |
+| 2026-10-02 | The storage code talks only to the Web Storage interface: `expo-sqlite/localStorage/install` on iOS and Android, the browser's `localStorage` on web | One small contract, so a later library change touches one file; the web needs no SQLite worker. |
+| 2026-10-02 | API: `storedValue({ key, schema, fallback, version?, migrate? })` gives `get()` and `set()` | Two synchronous, typed methods; the zod schema gives the type and checks every read. |
+| 2026-10-02 | Storage lives in its own entry, `@factory/core/storage`, through `exports` in core's `package.json` | Node loads `@factory/core` for `app.config.ts` and must not load a native module. |
+| 2026-10-02 | Values are saved as `{ version, value }`; `migrate(value, fromVersion)` converts older data; invalid or newer data reads as `fallback`; reads never write | A shape change never crashes the app, and an app downgrade does not erase newer data. |
+| 2026-10-02 | Stored values are read synchronously on the providers' first render, not preloaded in `FactoryProvider` | They are in place before the first frame and before the splash hides, with no loading state. |
+| 2026-10-02 | The restored theme mode sets `Appearance` in an effect on the mode | Native UI matches at startup; child effects run before `FactoryProvider` hides the splash. |
+| 2026-10-02 | Each stored value is defined next to its owner (`theme.mode` in `ThemeProvider`, `onboarding.completed` in `OnboardingProvider`); `@factory/ui` and `@factory/app` use the workspace's `zod` | The code that owns the state owns its key; no new package. |
+| 2026-10-02 | No `expo-sqlite` config plugin | It does nothing without options. |
+| 2026-10-02 | `metro.config.js` adds `wasm` to the asset extensions | Dev web bundles follow expo-sqlite's worker import to a `.wasm` file; the worker never runs. |
+| 2026-10-02 | The root ESLint config applies the `@typescript-eslint` rules only to `.ts` and `.tsx` files | Expo's config loads that plugin only for TypeScript files, so any `.js` file, such as `metro.config.js`, failed lint. |
+| 2026-10-02 | Static web pages render with default values; the browser applies stored values on load | The web is outside #6's criteria (Expo Go and native builds). |
+| 2026-10-02 | Persist app state only through `@factory/core/storage` (rule in `AGENTS.md`) | The install adds a global `localStorage`; one entry point keeps types, checks, and versions. |
