@@ -44,10 +44,9 @@ const settings: AppSettings = {
     payments: false,
     analytics: false,
   },
-  // Placeholders until #31 (Expo account and EAS project).
   eas: {
-    owner: 'EXPO_OWNER_PLACEHOLDER',
-    projectId: 'EAS_PROJECT_ID_PLACEHOLDER',
+    owner: 'kimyag',
+    projectId: '6d5e5f7b-1780-47e0-96e6-fc5bb04cab0d',
   },
   stores: {
     // Placeholders until #14 (Apple developer account).
