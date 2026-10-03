@@ -1,11 +1,15 @@
+import { useText } from '@factory/app';
 import { createStyles, Screen, Text } from '@factory/ui';
 
+import { text } from '@/text';
+
 export function HomeScreen() {
+  const t = useText(text);
   const styles = useStyles();
 
   return (
     <Screen style={styles.centered}>
-      <Text>Feature screen</Text>
+      <Text>{t('feature.body')}</Text>
     </Screen>
   );
 }

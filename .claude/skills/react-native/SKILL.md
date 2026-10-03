@@ -7,6 +7,10 @@ description: React Native UI patterns for this repo. Use for any UI work in apps
 
 Rules for UI code in `apps/*`, `packages/ui`, and `packages/screens`, as bad/good pairs.
 Tokens, components, and the color rule are in `packages/ui/DESIGN.md`. Read it first.
+Text: add keys to the package's `src/text/en.ts` and `tr.ts` (typed `Translation<typeof en>`),
+then `const t = useText(text)` from `@factory/app`. Values: `'Hi {name}'`; plurals:
+`{ one: '{count} day', other: '{count} days' }` with `t(key, { count })`. A new language adds
+`packages/app/src/languages/<code>.ts` (direction and plural rule) and a text file in every package.
 The Expo plugin skills cover lists vs. `ScrollView`, theme token structure,
 Expo Router and typed routes, safe areas, platform files, keyboard, animation,
 React Compiler and memoization, and labels for icon-only controls. Use them for

@@ -26,7 +26,7 @@ function AppStack() {
       </Stack.Protected>
       <Stack.Protected guard={completed}>
         <Stack.Screen name="(feature)" options={{ headerShown: false }} />
-        <Stack.Screen name="(settings)/settings" options={{ title: 'Settings' }} />
+        <Stack.Screen name="(settings)/settings" />
       </Stack.Protected>
     </Stack>
   );
