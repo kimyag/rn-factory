@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
 
+import { AppSettingsProvider } from './app-settings.tsx';
 import { LanguageProvider } from './language-state.tsx';
 import { OnboardingProvider } from './onboarding-state.tsx';
 
@@ -37,13 +38,15 @@ export function FactoryProvider({ settings, fontFiles = {}, children }: FactoryP
   }
 
   return (
-    <LanguageProvider>
-      <ThemeProvider settings={settings}>
-        <NavigationTheme>
-          <OnboardingProvider>{children}</OnboardingProvider>
-        </NavigationTheme>
-      </ThemeProvider>
-    </LanguageProvider>
+    <AppSettingsProvider settings={settings}>
+      <LanguageProvider>
+        <ThemeProvider settings={settings}>
+          <NavigationTheme>
+            <OnboardingProvider>{children}</OnboardingProvider>
+          </NavigationTheme>
+        </ThemeProvider>
+      </LanguageProvider>
+    </AppSettingsProvider>
   );
 }
 

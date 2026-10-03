@@ -25,12 +25,12 @@ export function Mark({ state, accessibilityLabel }: MarkProps) {
   const theme = useTheme();
   const styles = useStyles();
   const reduceMotion = useReducedMotion();
-  const { size, ring, dot, orbit } = theme.mark;
+  const { size, dot, orbit } = theme.mark;
   const center = size / 2;
   const loading = state === 'loading';
   const complete = state === 'complete';
   const orbiting = loading && !reduceMotion;
-  const color = state === 'empty' ? theme.colors.inkMuted : theme.colors.ink;
+  const inked = state !== 'empty';
 
   const rotation = useSharedValue(0);
   useEffect(() => {
@@ -47,6 +47,12 @@ export function Mark({ state, accessibilityLabel }: MarkProps) {
   }, [orbiting, rotation, theme.motion.orbit]);
 
   const spin = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotation.get()}deg` }] }));
+  const ink = useAnimatedStyle(() => ({
+    opacity: withTiming(inked ? 1 : 0, {
+      duration: theme.motion.fade,
+      easing: Easing.out(Easing.ease),
+    }),
+  }));
   const fill = useAnimatedStyle(() => ({
     opacity: withTiming(complete ? 1 : 0, {
       duration: theme.motion.achieve,
@@ -62,16 +68,22 @@ export function Mark({ state, accessibilityLabel }: MarkProps) {
       accessibilityRole={loading ? 'progressbar' : undefined}
       accessibilityState={loading ? { busy: true } : undefined}
     >
-      <Svg width={size} height={size}>
-        <Circle cx={center} cy={center} r={center - ring / 2} stroke={color} strokeWidth={ring} fill="none" />
-        {!loading && <Circle cx={center} cy={center} r={dot / 2} fill={color} />}
-      </Svg>
-      {loading && (
-        <Animated.View style={[StyleSheet.absoluteFill, spin]}>
-          <Svg width={size} height={size}>
-            <Circle cx={center} cy={center - orbit} r={dot / 2} fill={color} />
-          </Svg>
-        </Animated.View>
+      {loading ? (
+        <>
+          <Ring color={theme.colors.ink} withDot={false} />
+          <Animated.View style={[StyleSheet.absoluteFill, spin]}>
+            <Svg width={size} height={size}>
+              <Circle cx={center} cy={center - orbit} r={dot / 2} fill={theme.colors.ink} />
+            </Svg>
+          </Animated.View>
+        </>
+      ) : (
+        <>
+          <Ring color={theme.colors.inkMuted} withDot />
+          <Animated.View style={[StyleSheet.absoluteFill, ink]} pointerEvents="none">
+            <Ring color={theme.colors.ink} withDot />
+          </Animated.View>
+        </>
       )}
       <Animated.View style={[StyleSheet.absoluteFill, fill]} pointerEvents="none">
         <Svg width={size} height={size}>
@@ -80,6 +92,18 @@ export function Mark({ state, accessibilityLabel }: MarkProps) {
         </Svg>
       </Animated.View>
     </View>
+  );
+}
+
+function Ring({ color, withDot }: { color: string; withDot: boolean }) {
+  const { size, ring, dot } = useTheme().mark;
+  const center = size / 2;
+
+  return (
+    <Svg width={size} height={size}>
+      <Circle cx={center} cy={center} r={center - ring / 2} stroke={color} strokeWidth={ring} fill="none" />
+      {withDot && <Circle cx={center} cy={center} r={dot / 2} fill={color} />}
+    </Svg>
   );
 }
 

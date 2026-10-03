@@ -15,7 +15,7 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
   `src/app/` holds the app's `_layout.tsx` and one-line route files; `src/text/` its translations.
 - `packages/core` – `@factory/core`: app settings schema and shared logic.
 - `packages/app` – `@factory/app`: `FactoryProvider` (theme, navigation theme,
-  fonts, language, onboarding guard) and `useText` for translations.
+  fonts, language, onboarding guard), `useText`, and `useAppSettings`.
 - `packages/screens` – `@factory/screens`: onboarding and settings screens.
 - `packages/ui` – `@factory/ui`: tokens and components; see `packages/ui/DESIGN.md`.
 - `packages/payments` – RevenueCat module, on or off from app settings.

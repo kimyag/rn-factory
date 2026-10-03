@@ -24,6 +24,7 @@ const settings: AppSettings = {
     },
   },
   privacyUrl: 'https://example.com/PRIVACY_URL_PLACEHOLDER',
+  contactEmail: 'contact-placeholder@example.com',
   modules: {
     payments: false,
     analytics: false,
