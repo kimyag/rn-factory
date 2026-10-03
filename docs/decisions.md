@@ -42,7 +42,7 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | The restored theme mode sets `Appearance` in an effect on the mode | Native UI matches at startup; child effects run before `FactoryProvider` hides the splash. |
 | 2026-10-02 | Each stored value is defined next to its owner (`theme.mode` in `ThemeProvider`, `onboarding.completed` in `OnboardingProvider`); `@factory/ui` and `@factory/app` use the workspace's `zod` | The code that owns the state owns its key; no new package. |
 | 2026-10-02 | No `expo-sqlite` config plugin | It does nothing without options. |
-| 2026-10-02 | `metro.config.js` adds `wasm` to the asset extensions | Dev web bundles follow expo-sqlite's worker import to a `.wasm` file; the worker never runs. |
+| 2026-10-02 | `metro.config.js` adds `wasm` to the asset extensions (removed 2026-10-03, #38) | Dev web bundles follow expo-sqlite's worker import to a `.wasm` file; the worker never runs. |
 | 2026-10-02 | The root ESLint config applies the `@typescript-eslint` rules only to `.ts` and `.tsx` files | Expo's config loads that plugin only for TypeScript files, so any `.js` file, such as `metro.config.js`, failed lint. |
 | 2026-10-02 | Static web pages render with default values; the browser applies stored values on load | The web is outside #6's criteria (Expo Go and native builds). |
 | 2026-10-02 | Persist app state only through `@factory/core/storage` (rule in `AGENTS.md`) | The install adds a global `localStorage`; one entry point keeps types, checks, and versions. |
@@ -55,3 +55,5 @@ One line per decision. Newest at the bottom.
 | 2026-10-02 | Daily development uses the `development` profile (dev client, `expo-dev-client`) | Matches production: embedded fonts and native modules Expo Go lacks. |
 | 2026-10-02 | EAS profiles: shared base with Node 22.23.3 and pnpm 12.8.1; development (dev client, iOS simulator), preview (internal APK), production (remote versions, auto-increment) | Node 22.18+ is needed to read `app.config.ts`; build numbers managed by EAS. |
 | 2026-10-02 | Store and EAS IDs are named placeholders in `app.settings.ts`; `eas.json` leaves them out until real | EAS rejects placeholder IDs; #14, #15, #31 track the accounts. |
+| 2026-10-03 | `@factory/core/storage` uses expo-sqlite only under the `react-native` export condition (iOS, Android); everything else, including web and its server rendering, gets `storage.web.ts` (browser `localStorage`); `metro.config.js` removed | expo-sqlite's web worker broke the web bundles (#38); the web never needed it. |
+| 2026-10-03 | pnpm uses its default isolated layout; the `node-linker=hoisted` line in `.npmrc` is removed | pnpm 12 reads `nodeLinker` only from `pnpm-workspace.yaml`, so the line was ignored; everything was tested with the isolated layout. |
