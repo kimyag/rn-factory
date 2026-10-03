@@ -1,4 +1,9 @@
 export const en = {
+  'error.title': 'This screen couldn’t load',
+  'error.message': 'Try again to reopen this screen.',
+  'error.repeated': 'This screen still couldn’t load. Try again, or go to the start of the app.',
+  'error.retry': 'Try again',
+  'error.goToStart': 'Go to start',
   'onboarding.title': 'Onboarding',
   'onboarding.continue': 'Continue',
   'settings.title': 'Settings',
