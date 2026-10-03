@@ -4,7 +4,13 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 import appSettings from './app.settings.ts';
 
 export default (context: ConfigContext): ExpoConfig => {
-  const settings = validateSettings(appSettings);
+  // EAS can return Node's CommonJS wrapper for the TypeScript default export.
+  const importedSettings: unknown = appSettings;
+  const settings = validateSettings(
+    typeof importedSettings === 'object' && importedSettings !== null && 'default' in importedSettings
+      ? importedSettings.default
+      : importedSettings,
+  );
   const config = context.config;
 
   return {
