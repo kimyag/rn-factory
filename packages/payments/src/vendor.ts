@@ -5,7 +5,7 @@ import Purchases, {
   type PurchasesPackage,
 } from 'react-native-purchases';
 
-import type { Plan, PlanPeriod, PurchaseResult } from './payments.ts';
+import type { Plan, PlanPeriod, PremiumDetails, PurchaseResult, RestoreResult } from './payments.ts';
 
 // The only file that imports the RevenueCat SDK. It is loaded with import()
 // from payments.ts, and only when payments are on and a real key exists.
@@ -28,12 +28,24 @@ export function configure(apiKey: string) {
   configuredKey = apiKey;
 }
 
-function isActive(info: CustomerInfo, entitlement: string): boolean {
-  return info.entitlements.active[entitlement] !== undefined;
+function details(info: CustomerInfo, entitlement: string): PremiumDetails | null {
+  const active = info.entitlements.active[entitlement];
+  if (active === undefined) {
+    return null;
+  }
+  return {
+    expires: active.expirationDate,
+    renews: active.willRenew,
+    billingIssue: active.billingIssueDetectedAt !== null,
+  };
 }
 
-export async function entitlementActive(entitlement: string): Promise<boolean> {
-  return isActive(await Purchases.getCustomerInfo(), entitlement);
+export async function entitlementDetails(entitlement: string): Promise<PremiumDetails | null> {
+  return details(await Purchases.getCustomerInfo(), entitlement);
+}
+
+export async function managementUrl(): Promise<string | null> {
+  return (await Purchases.getCustomerInfo()).managementURL;
 }
 
 // A package is listed only when its billing period can be stated on the paywall.
@@ -67,25 +79,32 @@ export async function purchase(planId: string): Promise<PurchaseResult> {
     await Purchases.purchasePackage(item);
     return 'purchased';
   } catch (error) {
-    return isCancelled(error) ? 'cancelled' : 'failed';
+    return errorCode(error) === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
+      ? 'cancelled'
+      : errorCode(error) === PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR
+        ? 'pending'
+        : 'failed';
   }
 }
 
-function isCancelled(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
-  );
+function errorCode(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
 }
 
-export async function restore(entitlement: string): Promise<boolean> {
-  return isActive(await Purchases.restorePurchases(), entitlement);
+export async function restore(entitlement: string): Promise<RestoreResult> {
+  const info = await Purchases.restorePurchases();
+  const entitlements = Object.keys(info.entitlements.all);
+  if (details(info, entitlement) !== null) {
+    return { outcome: 'restored', entitlements };
+  }
+  return { outcome: info.allPurchasedProductIdentifiers.length > 0 ? 'notPremium' : 'nothing', entitlements };
 }
 
-export function onEntitlementChange(entitlement: string, listener: (active: boolean) => void): () => void {
-  const onUpdate = (info: CustomerInfo) => listener(isActive(info, entitlement));
+export function onEntitlementChange(
+  entitlement: string,
+  listener: (details: PremiumDetails | null) => void,
+): () => void {
+  const onUpdate = (info: CustomerInfo) => listener(details(info, entitlement));
   Purchases.addCustomerInfoUpdateListener(onUpdate);
   return () => {
     Purchases.removeCustomerInfoUpdateListener(onUpdate);
