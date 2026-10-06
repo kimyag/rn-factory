@@ -3,6 +3,10 @@ appId: ${APP_ID}
 ---
 - tapOn:
     id: onboarding-skip
+- extendedWaitUntil:
+    visible:
+      id: analytics-decline
+    timeout: 15000
 - tapOn:
     id: analytics-decline
 - extendedWaitUntil:

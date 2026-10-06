@@ -1,5 +1,5 @@
 # Fresh install state, then open the app from the dev server through the dev client link.
-# Needs APP_ID and DEV_CLIENT_LINK (the runner sets both).
+# Needs APP_ID, DEV_CLIENT_LINK and SERVER_URL (the runner sets all three).
 appId: ${APP_ID}
 ---
 - launchApp:
@@ -9,6 +9,10 @@ appId: ${APP_ID}
 # The dev client may show its one-time intro on a fresh install.
 - tapOn:
     text: Continue
+    optional: true
+# The launcher sometimes ignores the link and shows its server list: pick this server.
+- tapOn:
+    text: ${SERVER_URL}
     optional: true
 # The first bundle can take a while.
 - extendedWaitUntil:

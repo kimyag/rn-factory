@@ -72,12 +72,13 @@ export function devClientLink(slug: string, server: string): string {
 
 export function maestroArgs(
   flow: Flow,
-  values: { appId: string; link: string; lang: string; theme: string },
+  values: { appId: string; link: string; server: string; lang: string; theme: string },
 ): string[] {
   return [
     'test',
     '-e', `APP_ID=${values.appId}`,
     '-e', `DEV_CLIENT_LINK=${values.link}`,
+    '-e', `SERVER_URL=${values.server}`,
     '-e', `LANG_CODE=${values.lang}`,
     '-e', `THEME=${values.theme}`,
     flow.file,

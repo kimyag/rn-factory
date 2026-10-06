@@ -74,6 +74,7 @@ async function main() {
   const values = {
     appId: settings.bundleIds.android,
     link: devClientLink(settings.slug, server),
+    server,
     lang: options.lang,
     theme: options.theme,
   };

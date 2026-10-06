@@ -35,10 +35,12 @@ test('the dev client link encodes the server address', () => {
 });
 
 test('flow values are passed to Maestro as env variables', () => {
-  const args = maestroArgs(flows[1] as Flow, { appId: 'com.example.app', link: 'exp+x://l', lang: 'tr', theme: 'dark' });
+  const args = maestroArgs(flows[1] as Flow, {
+    appId: 'com.example.app', link: 'exp+x://l', server: 'http://10.0.0.2:8082', lang: 'tr', theme: 'dark',
+  });
   assert.deepEqual(args, [
-    'test', '-e', 'APP_ID=com.example.app', '-e', 'DEV_CLIENT_LINK=exp+x://l', '-e', 'LANG_CODE=tr', '-e', 'THEME=dark',
-    '/m/settings.yaml',
+    'test', '-e', 'APP_ID=com.example.app', '-e', 'DEV_CLIENT_LINK=exp+x://l', '-e', 'SERVER_URL=http://10.0.0.2:8082',
+    '-e', 'LANG_CODE=tr', '-e', 'THEME=dark', '/m/settings.yaml',
   ]);
 });
 
