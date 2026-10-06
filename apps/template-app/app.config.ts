@@ -1,4 +1,4 @@
-import { easUpdateConfig, isPlaceholder, neutrals, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
+import { easUpdateConfig, isPlaceholder, neutrals, sentryPlugin, telemetryPrivacyManifest, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import appSettings from './app.settings.ts';
@@ -19,7 +19,14 @@ export default (context: ConfigContext): ExpoConfig => {
     slug: settings.slug,
     icon: settings.branding.assets.icon,
     web: { ...config.web, favicon: settings.branding.assets.icon },
-    ios: { ...config.ios, bundleIdentifier: settings.bundleIds.ios },
+    ios: {
+      ...config.ios,
+      bundleIdentifier: settings.bundleIds.ios,
+      privacyManifests: {
+        ...config.ios?.privacyManifests,
+        ...telemetryPrivacyManifest(settings),
+      },
+    },
     android: {
       ...config.android,
       package: settings.bundleIds.android,
@@ -44,6 +51,7 @@ export default (context: ConfigContext): ExpoConfig => {
         },
       ],
       ...fontPlugin(settings.fonts),
+      ...sentryPlugin(settings),
     ],
     ...easProject(settings.eas, config.extra),
     ...easUpdateConfig(settings.eas),

@@ -1,4 +1,4 @@
-import { FactoryProvider, useOnboarding, type FontFiles } from '@factory/app';
+import { FactoryProvider, useOnboarding, useTelemetry, type FontFiles } from '@factory/app';
 import { RouteErrorBoundary } from '@factory/screens';
 import { Stack } from 'expo-router';
 
@@ -19,11 +19,13 @@ export default function RootLayout() {
 
 function AppStack() {
   const { completed } = useOnboarding();
+  const { reportCrash } = useTelemetry();
 
   return (
     <Stack
       layout={({ state, navigation, children }) => (
         <RouteErrorBoundary
+          onError={reportCrash}
           recoveryKey={state.routes[state.index]?.key ?? ''}
           onGoToStart={() =>
             navigation.reset({

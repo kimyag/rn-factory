@@ -42,7 +42,15 @@ const settings: AppSettings = {
   contactEmail: 'contact-placeholder@example.com',
   modules: {
     payments: false,
-    analytics: false,
+    crashReports: true,
+    analytics: true,
+  },
+  telemetry: {
+    sentryOrganization: 'SENTRY_ORGANIZATION_PLACEHOLDER',
+    sentryProject: 'SENTRY_PROJECT_PLACEHOLDER',
+    sentryDsn: 'SENTRY_DSN_PLACEHOLDER',
+    posthogApiKey: 'POSTHOG_API_KEY_PLACEHOLDER',
+    posthogHost: 'POSTHOG_HOST_PLACEHOLDER',
   },
   eas: {
     owner: 'kimyag',
