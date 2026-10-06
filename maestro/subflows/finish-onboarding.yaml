@@ -1,0 +1,11 @@
+# Skip the pages, decline analytics, and land on the feature screen.
+appId: ${APP_ID}
+---
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: analytics-decline
+- extendedWaitUntil:
+    visible:
+      id: feature-home
+    timeout: 15000

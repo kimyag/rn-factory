@@ -9,3 +9,4 @@ android/
 .env
 .env*.local
 .claude/worktrees/
+maestro-screenshots/

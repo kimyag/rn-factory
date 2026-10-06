@@ -1,0 +1,47 @@
+# Open the paywall, buy a plan with the Test Store, then restore. Test Store purchases are
+# simulated and cost nothing; they need a development build with the Test Store key.
+appId: ${APP_ID}
+---
+- runFlow: subflows/start.yaml
+- runFlow: subflows/finish-onboarding.yaml
+- tapOn:
+    id: settings-open
+- scrollUntilVisible:
+    element:
+      id: premium-plans
+- takeScreenshot: payments-settings
+- tapOn:
+    id: premium-plans
+- extendedWaitUntil:
+    visible:
+      id: paywall-plan-month
+    timeout: 30000
+- assertVisible:
+    id: paywall-plan-year
+- assertVisible:
+    id: paywall-plan-lifetime
+- takeScreenshot: payments-paywall
+- tapOn:
+    id: paywall-plan-month
+- takeScreenshot: payments-plan-selected
+- tapOn:
+    id: paywall-continue
+# The Test Store shows its own sheet. The button text below comes from RevenueCat's docs,
+# not from a run on a device; fix it here if the first run shows different wording.
+- extendedWaitUntil:
+    visible: '(?i).*test valid purchase.*'
+    timeout: 30000
+- takeScreenshot: payments-test-store-sheet
+- tapOn: '(?i).*test valid purchase.*'
+- extendedWaitUntil:
+    visible:
+      id: premium-active
+    timeout: 30000
+- takeScreenshot: payments-premium-active
+- tapOn:
+    id: restore
+- extendedWaitUntil:
+    visible:
+      id: restore-result
+    timeout: 30000
+- takeScreenshot: payments-restored

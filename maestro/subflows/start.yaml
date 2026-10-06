@@ -1,0 +1,17 @@
+# Fresh install state, then open the app from the dev server through the dev client link.
+# Needs APP_ID and DEV_CLIENT_LINK (the runner sets both).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+- openLink: ${DEV_CLIENT_LINK}
+# The dev client may show its one-time intro on a fresh install.
+- tapOn:
+    text: Continue
+    optional: true
+# The first bundle can take a while.
+- extendedWaitUntil:
+    visible:
+      id: onboarding-next
+    timeout: 180000

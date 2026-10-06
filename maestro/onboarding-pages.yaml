@@ -1,0 +1,28 @@
+# Walk the onboarding pages with Next and Get started, then answer the analytics question.
+# Assumes the template's three pages; an app with another count writes its own flow.
+appId: ${APP_ID}
+---
+- runFlow: subflows/start.yaml
+- takeScreenshot: onboarding-pages-1
+- tapOn:
+    id: onboarding-next
+- takeScreenshot: onboarding-pages-2
+- tapOn:
+    id: onboarding-next
+- assertVisible:
+    id: onboarding-done
+- takeScreenshot: onboarding-pages-3
+- tapOn:
+    id: onboarding-done
+- assertVisible:
+    id: analytics-share
+- assertVisible:
+    id: analytics-decline
+- takeScreenshot: onboarding-pages-analytics-question
+- tapOn:
+    id: analytics-share
+- extendedWaitUntil:
+    visible:
+      id: feature-home
+    timeout: 15000
+- takeScreenshot: onboarding-pages-done

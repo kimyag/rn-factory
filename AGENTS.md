@@ -22,6 +22,8 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
 - `packages/ui` – `@factory/ui`: tokens and components; see `packages/ui/DESIGN.md`.
 - `packages/payments` – `@factory/payments`: RevenueCat behind a small API, the paywall,
   and `usePremium()` to check access; on or off from app settings. See `docs/payments.md`.
+- `maestro/` – Maestro flows for the shared screens (onboarding, settings, paywall), used by
+  every app; an app's own feature flows go in `apps/<app>/.maestro/`. Give new UI a `testID`.
 - `docs/decisions.md` – decision log.
 - `.github/` – issue and PR templates, CI.
 
@@ -33,6 +35,7 @@ pnpm typecheck                  # typecheck
 pnpm lint                       # lint
 pnpm eas:config                 # write apps/*/eas.json from app settings (never edit eas.json)
 pnpm new-app "My App"            # new app from apps/template-app (asks for missing values; --help)
+pnpm maestro [flow ...]          # run Maestro flows on the connected Android phone; saves screenshots
 ```
 Daily development uses the `development` build (dev client): build it once with
 `npx eas-cli build --profile development --platform android` (or `ios` for the simulator), then `pnpm --filter <app> start`.
@@ -58,6 +61,9 @@ compatible updates from other channels, so it is not a channel-isolation test.
 - Branch: `<type>/<issue-number>-<short-slug>`, e.g. `feat/7-translations`.
 - Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `ci:`.
 - Typecheck and lint must pass before a PR is ready.
+- Before opening a PR that changes UI, run the relevant Maestro flows on the device
+  (`pnpm maestro <flow>`, see `docs/maestro.md`) and attach the screenshots to the PR.
+  Use the phone only when I say it is free, and say in the PR which flows ran.
 - When I make a decision, add one line to `docs/decisions.md`.
 
 ## Code rules

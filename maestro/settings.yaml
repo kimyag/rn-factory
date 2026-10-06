@@ -1,0 +1,23 @@
+# Pick a theme and a language in Settings. The runner passes THEME (system, light, dark)
+# and LANG_CODE (a language code such as en or tr). The screenshot name carries both.
+appId: ${APP_ID}
+---
+- runFlow: subflows/start.yaml
+- runFlow: subflows/finish-onboarding.yaml
+- tapOn:
+    id: settings-open
+- extendedWaitUntil:
+    visible:
+      id: theme-system
+    timeout: 15000
+- tapOn:
+    id: theme-${THEME}
+- tapOn:
+    id: language-${LANG_CODE}
+- assertVisible:
+    id: theme-${THEME}
+- takeScreenshot: settings-${LANG_CODE}-${THEME}
+- scrollUntilVisible:
+    element:
+      id: restore
+- takeScreenshot: settings-${LANG_CODE}-${THEME}-lower
