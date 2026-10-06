@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { appSettingsSchema } from '../packages/core/src/index.ts';
+import { appColorProblems, appSettingsSchema, type ColorScheme } from '../packages/core/src/index.ts';
 import { bundledFonts, scaffold, slugFromName, type BundledFont, type FontChoice, type NewAppValues } from './new-app-lib.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -87,7 +87,8 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-const hex = (input: string) => (/^#[0-9A-Fa-f]{6}$/.test(input) ? undefined : 'must be a hex color like #1A2B3C');
+const colorCheck = (scheme: ColorScheme) => (input: string) =>
+  /^#[0-9A-Fa-f]{6}$/.test(input) ? appColorProblems(scheme, input).join('; ') || undefined : 'must be a hex color like #1A2B3C';
 
 async function fontChoice(): Promise<FontChoice> {
   const choices = [...Object.keys(bundledFonts), 'system', 'file'];
@@ -108,8 +109,8 @@ const name = await value(positionals[0], 'App name', (input) => (input.trim() ? 
 const slug = await value(flags.slug, 'Slug', fieldCheck(appSettingsSchema.shape.slug), slugFromName(name));
 const iosBundleId = await value(flags.ios, 'iOS bundle ID', fieldCheck(appSettingsSchema.shape.bundleIds.shape.ios));
 const androidBundleId = await value(flags.android, 'Android package', fieldCheck(appSettingsSchema.shape.bundleIds.shape.android), iosBundleId);
-const colorLight = await value(flags['color-light'], 'App color on light (#RRGGBB)', hex);
-const colorDark = await value(flags['color-dark'], 'App color on dark (#RRGGBB)', hex);
+const colorLight = await value(flags['color-light'], 'App color on light (#RRGGBB)', colorCheck('light'));
+const colorDark = await value(flags['color-dark'], 'App color on dark (#RRGGBB)', colorCheck('dark'));
 const titleFont = await fontChoice();
 prompts?.close();
 

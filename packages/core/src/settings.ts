@@ -1,29 +1,29 @@
 import { z } from 'zod';
 
-import { contrastRatio, neutrals } from './color.ts';
+import { contrastRatio, neutrals, type ColorScheme } from './color.ts';
 
 const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'must be a hex color like #1A2B3C');
+
+export function appColorProblems(scheme: ColorScheme, color: string): string[] {
+  const { paper } = neutrals[scheme];
+  const problems: string[] = [];
+  const onPaper = contrastRatio(color, paper);
+  if (onPaper < 3) {
+    problems.push(`needs at least 3:1 contrast on the ${scheme} background ${paper} (now ${onPaper.toFixed(2)}:1)`);
+  }
+  const dot = contrastRatio(paper, color);
+  if (dot < 4.5) {
+    problems.push(`the ${paper} dot on it needs at least 4.5:1 contrast (now ${dot.toFixed(2)}:1)`);
+  }
+  return problems;
+}
 
 const appColor = z
   .strictObject({ light: hexColor, dark: hexColor })
   .superRefine((color, ctx) => {
     for (const scheme of ['light', 'dark'] as const) {
-      const { paper } = neutrals[scheme];
-      const onPaper = contrastRatio(color[scheme], paper);
-      if (onPaper < 3) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [scheme],
-          message: `needs at least 3:1 contrast on the ${scheme} background ${paper} (now ${onPaper.toFixed(2)}:1)`,
-        });
-      }
-      const dot = contrastRatio(paper, color[scheme]);
-      if (dot < 4.5) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [scheme],
-          message: `the ${paper} dot on it needs at least 4.5:1 contrast (now ${dot.toFixed(2)}:1)`,
-        });
+      for (const message of appColorProblems(scheme, color[scheme])) {
+        ctx.addIssue({ code: 'custom', path: [scheme], message });
       }
     }
   });

@@ -5,6 +5,7 @@ import { join, relative } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { appColorProblems } from '../packages/core/src/index.ts';
 import { bundledFonts, copiedFiles, copiedFolders, loadSettings, renderFonts, scaffold, slugFromName, type NewAppValues } from './new-app-lib.ts';
 
 const templateDir = fileURLToPath(new URL('../apps/template-app/', import.meta.url));
@@ -117,4 +118,10 @@ test('every template file is copied, written, generated, or deliberately left ou
 test('slugs come from names without accents or symbols', () => {
   assert.equal(slugFromName("Rosa's Garden"), 'rosas-garden');
   assert.equal(slugFromName('Çiçek Bahçesi!'), 'cicek-bahcesi');
+});
+
+test('a color is checked against its own background, with the same messages as the schema', () => {
+  assert.deepEqual(appColorProblems('light', '#2F6B3A'), []);
+  assert.match(appColorProblems('light', '#F5F5F0').join(), /needs at least 3:1 contrast on the light background/);
+  assert.match(appColorProblems('dark', '#101010').join(), /needs at least 3:1 contrast on the dark background/);
 });
