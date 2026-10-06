@@ -1,0 +1,16 @@
+export const en = {
+  'disclosure.title': 'Send text to AI?',
+  'disclosure.body': 'The text you enter will be sent to an AI provider to make this result. We do not store it on our server, but the provider may handle it under its own terms. Please remove anything you do not have permission to share.',
+  'disclosure.send': 'Send to AI',
+  'disclosure.cancel': 'Cancel',
+  'error.unavailable': 'AI is unavailable right now. Please try again later.',
+  'error.unauthorized': 'Your AI session expired. Please try again.',
+  'error.too_long': 'This text is too long. Shorten it and try again.',
+  'error.invalid_request': 'Check the text and try again.',
+  'error.daily_limit': 'You have used today’s AI requests. More are available at {time}.',
+  'error.budget_limit': 'AI is unavailable for today. Please try again at {time}.',
+  'error.burst_limit': 'Too many requests at once. Please wait a minute and try again.',
+  'error.provider_error': 'The AI provider could not finish. Please try again.',
+  'error.cancelled': 'The text was not sent.',
+  'limit.premium': 'See Premium for more daily requests.',
+} as const;

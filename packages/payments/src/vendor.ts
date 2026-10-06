@@ -28,6 +28,12 @@ export function configure(apiKey: string) {
   configuredKey = apiKey;
 }
 
+export async function identify(appUserId: string): Promise<void> {
+  if (await Purchases.getAppUserID() !== appUserId) {
+    await Purchases.logIn(appUserId);
+  }
+}
+
 function details(info: CustomerInfo, entitlement: string): PremiumDetails | null {
   const active = info.entitlements.active[entitlement];
   if (active === undefined) {

@@ -12,13 +12,20 @@ export default (context: ConfigContext): ExpoConfig => {
       : importedSettings,
   );
   const config = context.config;
+  const routerConfig: NonNullable<ExpoConfig['plugins']> = settings.modules.ai
+    ? [['expo-router', isPlaceholder(settings.ai.serverUrl) ? {} : { origin: settings.ai.serverUrl }]]
+    : ['expo-router'];
 
   return {
     ...config,
     name: settings.name,
     slug: settings.slug,
     icon: settings.branding.assets.icon,
-    web: { ...config.web, favicon: settings.branding.assets.icon },
+    web: {
+      ...config.web,
+      favicon: settings.branding.assets.icon,
+      output: settings.modules.ai ? 'server' : 'static',
+    },
     ios: {
       ...config.ios,
       bundleIdentifier: settings.bundleIds.ios,
@@ -41,7 +48,8 @@ export default (context: ConfigContext): ExpoConfig => {
       },
     },
     plugins: [
-      ...(config.plugins ?? []).filter((plugin) => plugin !== 'expo-splash-screen'),
+      ...(config.plugins ?? []).filter((plugin) => plugin !== 'expo-splash-screen' && plugin !== 'expo-router'),
+      ...routerConfig,
       [
         'expo-splash-screen',
         {

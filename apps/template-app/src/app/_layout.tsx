@@ -1,16 +1,27 @@
 import { FactoryProvider, useOnboarding, useTelemetry } from '@factory/app';
 import { PaymentsProvider } from '@factory/payments';
 import { RouteErrorBoundary } from '@factory/screens';
+import { lazy, Suspense } from 'react';
 import { Stack } from 'expo-router';
 
 import settings from '../../app.settings.ts';
 import { fontFiles } from '../fonts.ts';
 
+const AiProvider = lazy(() => import('@factory/ai').then(({ AiProvider: Provider }) => ({ default: Provider })));
+
 export default function RootLayout() {
   return (
     <FactoryProvider settings={settings} fontFiles={fontFiles}>
       <PaymentsProvider>
-        <AppStack />
+        {settings.modules.ai ? (
+          <Suspense fallback={null}>
+            <AiProvider>
+              <AppStack />
+            </AiProvider>
+          </Suspense>
+        ) : (
+          <AppStack />
+        )}
       </PaymentsProvider>
     </FactoryProvider>
   );
