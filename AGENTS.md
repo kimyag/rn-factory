@@ -33,6 +33,22 @@ pnpm eas:config                 # write apps/*/eas.json from app settings (never
 Daily development uses the `development` build (dev client): build it once with
 `npx eas-cli build --profile development --platform android` (or `ios` for the simulator), then `pnpm --filter <app> start`.
 
+EAS Update channels and environments match the build profiles. From `apps/<app>/`,
+publish JavaScript/assets with the command for the target profile:
+```bash
+pnpm dlx eas-cli@24.9.0 update --channel development --environment development --message "Describe the update"
+pnpm dlx eas-cli@24.9.0 update --channel preview --environment preview --message "Describe the update"
+pnpm dlx eas-cli@24.9.0 update --channel production --environment production --message "Describe the update"
+```
+Publishing is an external release; do it only when explicitly requested. Always
+test on preview before production. Native dependencies, SDK upgrades, config
+plugins, and other native changes require a new build: the fingerprint runtime
+policy prevents incompatible builds from receiving the update. Existing builds
+without EAS Update configuration also need rebuilding once. Release builds check
+at launch without waiting, download in the background, and apply a downloaded
+update on a later launch; never force a reload during use. A dev client can open
+compatible updates from other channels, so it is not a channel-isolation test.
+
 ## Workflow
 - One issue, one branch, one PR. The PR says `Closes #<issue>`.
 - Branch: `<type>/<issue-number>-<short-slug>`, e.g. `feat/7-translations`.

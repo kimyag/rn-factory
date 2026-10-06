@@ -24,4 +24,5 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: node --test packages/screens/src/error-recovery.test.ts
+      - run: node --test packages/core/src/eas.test.ts
       - run: pnpm eas:config --check

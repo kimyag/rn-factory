@@ -1,4 +1,4 @@
-import { isPlaceholder, neutrals, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
+import { easUpdateConfig, isPlaceholder, neutrals, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import appSettings from './app.settings.ts';
@@ -46,6 +46,7 @@ export default (context: ConfigContext): ExpoConfig => {
       ...fontPlugin(settings.fonts),
     ],
     ...easProject(settings.eas, config.extra),
+    ...easUpdateConfig(settings.eas),
   };
 };
 
