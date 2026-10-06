@@ -35,6 +35,12 @@ export const copiedFolders = ['src/app', 'src/feature', 'src/text', 'assets/onbo
 
 const fontsFolder = 'assets/fonts';
 const placeholderValues = { owner: 'EAS_OWNER_PLACEHOLDER', projectId: 'EAS_PROJECT_ID_PLACEHOLDER' };
+// Each app has its own RevenueCat project, so it never inherits the template's keys.
+const paymentPlaceholders: AppSettings['payments'] = {
+  revenueCatIosApiKey: 'REVENUECAT_IOS_API_KEY_PLACEHOLDER',
+  revenueCatAndroidApiKey: 'REVENUECAT_ANDROID_API_KEY_PLACEHOLDER',
+  revenueCatTestStoreApiKey: 'REVENUECAT_TEST_STORE_API_KEY_PLACEHOLDER',
+};
 
 export function slugFromName(name: string): string {
   return name
@@ -95,14 +101,14 @@ export function buildSettings(template: AppSettings, values: NewAppValues, title
   settings.fonts = { ...settings.fonts, title };
   settings.modules = { ...settings.modules, payments: false };
   settings.eas = { ...placeholderValues };
+  settings.payments = { ...paymentPlaceholders };
   const validated = validateSettings(settings);
   const leaked = [
     ...Object.values(validated.telemetry),
-    ...Object.values(validated.payments),
     ...Object.values(validated.stores.apple),
   ].filter((value) => !isPlaceholder(value));
   if (leaked.length > 0) {
-    throw new Error('The template settings hold real store, telemetry or payment values; a new app must start with placeholders.');
+    throw new Error('The template settings hold real store or telemetry values; a new app must start with placeholders.');
   }
   return validated;
 }
@@ -134,6 +140,9 @@ export function patchSettingsSource(source: string, settings: AppSettings): stri
   result = replaceOnce(result, /^ {4}dark: '.*',$/m, `    dark: ${quote(settings.appColor.dark)},`, 'dark app color');
   result = replaceOnce(result, /^ {4}title: (?:'system'|\{\n(?: {6}.*\n)+? {4}\}),$/m, titleBlock, 'title font');
   result = replaceOnce(result, /^ {4}payments: (?:true|false),$/m, '    payments: false,', 'payments module switch');
+  for (const [key, value] of Object.entries(settings.payments)) {
+    result = replaceOnce(result, new RegExp(`^ {4}${key}: '.*',$`, 'm'), `    ${key}: ${quote(value)},`, key);
+  }
   result = replaceOnce(result, /^ {4}owner: '.*',$/m, `    owner: ${quote(settings.eas.owner)},`, 'EAS owner');
   result = replaceOnce(result, /^ {4}projectId: '.*',$/m, `    projectId: ${quote(settings.eas.projectId)},`, 'EAS project ID');
   return result;
