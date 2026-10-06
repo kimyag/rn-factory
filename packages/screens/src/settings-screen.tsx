@@ -8,7 +8,7 @@ import {
   type LanguageChoice,
 } from '@factory/app';
 import { isPlaceholder, type AppSettings } from '@factory/core';
-import { usePremium, useRestore } from '@factory/payments';
+import { PremiumSummary, usePremium, useRestore } from '@factory/payments';
 import { createStyles, Mark, Screen, Text, useTheme, useThemeMode, type ThemeMode } from '@factory/ui';
 import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
@@ -90,8 +90,13 @@ export function SettingsScreen() {
               <Text>{t('settings.premium.active')}</Text>
             </View>
           )}
+          {premium.status === 'active' && <PremiumSummary />}
+          {premium.status === 'active' && premium.details?.expires !== null && (
+            <ActionRow label={t('settings.premium.manage')} role="link" onPress={() => void premium.manage()} />
+          )}
           <ActionRow label={restoring.label} role="button" onPress={restoring.restore} />
           {restoring.message !== null && <Text variant="caption">{restoring.message}</Text>}
+          {restoring.hint !== null && <Text variant="caption">{restoring.hint}</Text>}
         </Section>
       )}
       <Section title={t('settings.about')}>

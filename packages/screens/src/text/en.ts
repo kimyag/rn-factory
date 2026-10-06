@@ -27,4 +27,5 @@ export const en = {
   'settings.premium': 'Premium',
   'settings.premium.plans': 'See plans',
   'settings.premium.active': 'Premium is active',
+  'settings.premium.manage': 'Manage subscription',
 } as const;

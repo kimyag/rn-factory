@@ -31,4 +31,5 @@ export const tr: Translation<typeof en> = {
   'settings.premium': 'Premium',
   'settings.premium.plans': 'Planları gör',
   'settings.premium.active': 'Premium etkin',
+  'settings.premium.manage': 'Aboneliği yönet',
 };

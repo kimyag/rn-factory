@@ -1,9 +1,9 @@
 import { useAppSettings, useText } from '@factory/app';
 import { useRouter } from 'expo-router';
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
-import { createPayments, type Plan, type PurchaseResult } from './payments.ts';
+import { createPayments, premiumEntitlement, type Plan, type PremiumDetails, type PurchaseResult, type RestoreResult } from './payments.ts';
 import { text } from './text/index.ts';
 
 export type PremiumStatus = 'loading' | 'active' | 'inactive';
@@ -11,9 +11,11 @@ export type PremiumStatus = 'loading' | 'active' | 'inactive';
 type PaymentsState = {
   available: boolean;
   status: PremiumStatus;
+  details: PremiumDetails | null;
   plans: () => Promise<Plan[]>;
   purchase: (plan: Plan) => Promise<PurchaseResult>;
-  restore: () => Promise<boolean>;
+  restore: () => Promise<RestoreResult>;
+  manage: () => Promise<void>;
 };
 
 const PaymentsContext = createContext<PaymentsState | null>(null);
@@ -23,20 +25,24 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
   const [payments] = useState(() =>
     createPayments(settings, { platform: Platform.OS, development: __DEV__ }),
   );
-  const [status, setStatus] = useState<PremiumStatus>(payments.available ? 'loading' : 'inactive');
+  // undefined until the first answer; null when there is no premium.
+  const [entitlement, setEntitlement] = useState<PremiumDetails | null | undefined>(
+    payments.available ? undefined : null,
+  );
 
   useEffect(() => {
     if (!payments.available) {
       return;
     }
     let current = true;
-    const update = (active: boolean) => {
+    const update = (details: PremiumDetails | null) => {
       if (current) {
-        setStatus(active ? 'active' : 'inactive');
+        setEntitlement(details);
       }
     };
     const stop = payments.onEntitlementChange(update);
-    payments.entitlement().then(update, () => update(false));
+    // A failed refresh keeps what is known; RevenueCat answers from its own cache when offline.
+    payments.entitlement().then(update, () => current && setEntitlement((known) => known ?? null));
     return () => {
       current = false;
       stop();
@@ -46,23 +52,29 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
   async function purchase(plan: Plan): Promise<PurchaseResult> {
     const result = await payments.purchase(plan).catch((): PurchaseResult => 'failed');
     if (result === 'purchased') {
-      const active = await payments.entitlement().catch(() => null);
-      if (active !== null) {
-        setStatus(active ? 'active' : 'inactive');
+      const details = await payments.entitlement().catch(() => undefined);
+      if (details !== undefined) {
+        setEntitlement(details);
       }
     }
     return result;
   }
 
-  async function restore(): Promise<boolean> {
-    const active = await payments.restore();
-    setStatus(active ? 'active' : 'inactive');
-    return active;
+  async function restore(): Promise<RestoreResult> {
+    const result = await payments.restore();
+    setEntitlement(result.outcome === 'restored' ? await payments.entitlement() : null);
+    return result;
   }
+
+  async function manage() {
+    await Linking.openURL(await payments.managementUrl());
+  }
+
+  const status: PremiumStatus = entitlement === undefined ? 'loading' : entitlement === null ? 'inactive' : 'active';
 
   return (
     <PaymentsContext
-      value={{ available: payments.available, status, plans: payments.plans, purchase, restore }}
+      value={{ available: payments.available, status, details: entitlement ?? null, plans: payments.plans, purchase, restore, manage }}
     >
       {children}
     </PaymentsContext>
@@ -80,12 +92,14 @@ export function usePayments(): PaymentsState {
 // For feature screens: gate on `status`, and call `openPaywall` when a
 // premium feature is opened. Nothing opens while payments are unavailable.
 export function usePremium() {
-  const { available, status } = usePayments();
+  const { available, status, details, manage } = usePayments();
   const router = useRouter();
 
   return {
     available,
     status,
+    details,
+    manage,
     openPaywall() {
       if (available) {
         router.push('/paywall');
@@ -94,22 +108,24 @@ export function usePremium() {
   };
 }
 
-type RestoreOutcome = 'restored' | 'nothing' | 'failed';
+type RestoreOutcome = 'restored' | 'notPremium' | 'nothing' | 'failed';
 
 export function useRestore() {
   const { restore } = usePayments();
   const t = useText(text);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<RestoreOutcome | null>(null);
+  const [entitlements, setEntitlements] = useState<string[]>([]);
 
   async function run() {
     setBusy(true);
     setOutcome(null);
     const result = await restore().then(
-      (active): RestoreOutcome => (active ? 'restored' : 'nothing'),
-      (): RestoreOutcome => 'failed',
+      (found): { outcome: RestoreOutcome; entitlements: string[] } => found,
+      () => ({ outcome: 'failed' as const, entitlements: [] }),
     );
-    setOutcome(result);
+    setOutcome(result.outcome);
+    setEntitlements(result.entitlements);
     setBusy(false);
   }
 
@@ -117,6 +133,11 @@ export function useRestore() {
     label: t('restore.action'),
     busy,
     message: outcome === null ? null : t(`restore.${outcome}`),
+    // Development builds name the entitlements RevenueCat knows, to catch a wrong identifier.
+    hint:
+      __DEV__ && outcome === 'notPremium'
+        ? t('restore.devHint', { found: entitlements.join(', ') || '-', needed: premiumEntitlement })
+        : null,
     restore: () => void run(),
   };
 }

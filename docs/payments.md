@@ -87,11 +87,34 @@ button; Settings and the paywall both use it.
 - No plan is selected until the user picks one. Continue stays disabled until then.
 - The way to cancel is always stated under the plans, for the store of the device.
 - Close is at the top of the screen in every state, and back also closes it.
-- A cancelled purchase shows no message. A failed one says so in one line.
+- A cancelled purchase shows no message. A failed one says so in one line. A pending one
+  (slow payment methods on Google Play) says the payment is pending and that premium starts
+  when the store confirms it; the paywall stays open and the entitlement listener turns
+  premium on later.
 - No new analytics events are recorded.
 
 Before an App Store submission the paywall also needs a Terms of use link
 next to the privacy policy link (#14).
+
+## Premium users
+
+While premium is active, Settings shows a summary (`PremiumSummary`: renews on, ends on and
+will not renew, one-time purchase, or a payment problem) and a "Manage subscription" row. It
+opens RevenueCat's management link, or the store's subscription page when there is none
+(`usePayments().manage()`). A one-time purchase has nothing to manage, so no row. A failed
+refresh of the entitlement keeps the last known state; RevenueCat answers from its own cache
+when the device is offline.
+
+## Restore and testing
+
+Restore tells three cases apart: restored, a purchase that does not include premium
+(`notPremium`), and no purchase. In a development build the `notPremium` message also names
+the entitlements RevenueCat knows, so a wrong identifier shows at once: the entitlement must be
+called exactly `premium`, with the products attached to it.
+
+The Test Store simulates purchases under an anonymous RevenueCat user, so it proves the
+paywall and the entitlement, not cancel, renewal, or restore across devices. For those, test
+with an iOS sandbox account or a Google Play license tester before a store submission.
 
 ## Checks
 

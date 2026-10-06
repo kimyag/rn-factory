@@ -110,6 +110,7 @@ function Plans({ plans, purchase, onPurchased }: PlansProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState(false);
   const subscriptions = plans.some((plan) => plan.period !== 'lifetime');
   const lifetime = plans.some((plan) => plan.period === 'lifetime');
 
@@ -120,10 +121,13 @@ function Plans({ plans, purchase, onPurchased }: PlansProps) {
     }
     setBuying(true);
     setFailed(false);
+    setPending(false);
     const result = await purchase(plan);
     setBuying(false);
     if (result === 'purchased') {
       onPurchased();
+    } else if (result === 'pending') {
+      setPending(true);
     } else if (result === 'failed') {
       setFailed(true);
     }
@@ -161,6 +165,7 @@ function Plans({ plans, purchase, onPurchased }: PlansProps) {
         disabled={selected === null || buying}
       />
       {failed && <Text>{t('paywall.purchaseFailed')}</Text>}
+      {pending && <Text>{t('paywall.purchasePending')}</Text>}
       <Button
         variant="secondary"
         title={restoring.label}
@@ -168,6 +173,7 @@ function Plans({ plans, purchase, onPurchased }: PlansProps) {
         disabled={restoring.busy || buying}
       />
       {restoring.message !== null && <Text>{restoring.message}</Text>}
+      {restoring.hint !== null && <Text variant="caption">{restoring.hint}</Text>}
       <Pressable
         accessibilityRole="link"
         onPress={() => void WebBrowser.openBrowserAsync(settings.privacyUrl)}
