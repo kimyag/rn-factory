@@ -8,6 +8,7 @@ import {
   type LanguageChoice,
 } from '@factory/app';
 import { isPlaceholder, type AppSettings } from '@factory/core';
+import { usePremium, useRestore } from '@factory/payments';
 import { createStyles, Mark, Screen, Text, useTheme, useThemeMode, type ThemeMode } from '@factory/ui';
 import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
@@ -27,6 +28,8 @@ export function SettingsScreen() {
   const styles = useStyles();
   const theme = useTheme();
   const analytics = useTelemetry();
+  const premium = usePremium();
+  const restoring = useRestore();
 
   const themeOptions: Option<ThemeMode>[] = [
     { value: 'system', label: t('settings.theme.system') },
@@ -77,6 +80,20 @@ export function SettingsScreen() {
           </View>
         </Section>
       )}
+      {premium.available && (
+        <Section title={t('settings.premium')}>
+          {premium.status === 'inactive' && (
+            <ActionRow label={t('settings.premium.plans')} role="button" onPress={premium.openPaywall} />
+          )}
+          {premium.status === 'active' && (
+            <View style={styles.row}>
+              <Text>{t('settings.premium.active')}</Text>
+            </View>
+          )}
+          <ActionRow label={restoring.label} role="button" onPress={restoring.restore} />
+          {restoring.message !== null && <Text variant="caption">{restoring.message}</Text>}
+        </Section>
+      )}
       <Section title={t('settings.about')}>
         <ActionRow
           label={t('settings.privacy')}
@@ -89,9 +106,6 @@ export function SettingsScreen() {
           onPress={() => void Linking.openURL(`mailto:${settings.contactEmail}`)}
         />
         <ActionRow label={t('settings.rate')} role="link" onPress={rate} />
-        {settings.modules.payments && (
-          <ActionRow label={t('settings.restore')} role="button" onPress={restorePurchases} />
-        )}
         <View style={styles.row} accessible accessibilityLabel={`${t('settings.version')}, ${version}`}>
           <Text>{t('settings.version')}</Text>
           <Text variant="mono">{version}</Text>
@@ -109,9 +123,6 @@ function reviewUrl(settings: AppSettings): string | null {
   }
   return `https://play.google.com/store/apps/details?id=${settings.bundleIds.android}`;
 }
-
-// Restores purchases once the payments module exists (#9).
-function restorePurchases() {}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const styles = useStyles();

@@ -1,4 +1,5 @@
 import { FactoryProvider, useOnboarding, useTelemetry, type FontFiles } from '@factory/app';
+import { PaymentsProvider } from '@factory/payments';
 import { RouteErrorBoundary } from '@factory/screens';
 import { Stack } from 'expo-router';
 
@@ -12,7 +13,9 @@ const fontFiles: FontFiles = {
 export default function RootLayout() {
   return (
     <FactoryProvider settings={settings} fontFiles={fontFiles}>
-      <AppStack />
+      <PaymentsProvider>
+        <AppStack />
+      </PaymentsProvider>
     </FactoryProvider>
   );
 }
@@ -44,6 +47,7 @@ function AppStack() {
       <Stack.Protected guard={completed}>
         <Stack.Screen name="(feature)" options={{ headerShown: false }} />
         <Stack.Screen name="(settings)/settings" />
+        <Stack.Screen name="(paywall)/paywall" options={{ presentation: 'modal', headerShown: false }} />
       </Stack.Protected>
     </Stack>
   );

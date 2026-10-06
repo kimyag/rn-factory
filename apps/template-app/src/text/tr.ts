@@ -11,4 +11,6 @@ export const tr: Translation<typeof en> = {
   'onboarding.2.body': 'İkinci sayfa için yer tutucu.',
   'onboarding.3.title': 'Üçüncü sayfa',
   'onboarding.3.body': 'Son sayfa için yer tutucu. Aşağıdaki düğme tanıtımı bitirir.',
+  'paywall.title': 'Premium',
+  'paywall.body': 'Premium ile gelenler için yer tutucu. Her uygulama kendi metnini yazar.',
 };

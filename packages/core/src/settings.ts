@@ -107,6 +107,11 @@ export const appSettingsSchema = z.strictObject({
       'must be an HTTPS PostHog host or a NAME_PLACEHOLDER',
     ),
   }),
+  payments: z.strictObject({
+    revenueCatIosApiKey: realOrPlaceholder(/^appl_\w+$/, 'must be the RevenueCat iOS API key (appl_…)'),
+    revenueCatAndroidApiKey: realOrPlaceholder(/^goog_\w+$/, 'must be the RevenueCat Android API key (goog_…)'),
+    revenueCatTestStoreApiKey: realOrPlaceholder(/^test_\w+$/, 'must be the RevenueCat Test Store API key (test_…)'),
+  }),
   eas: z.strictObject({
     owner: realOrPlaceholder(/^[a-z0-9][a-z0-9_-]*$/, 'must be your Expo username or organization'),
     projectId: realOrPlaceholder(

@@ -1,4 +1,4 @@
-import { easUpdateConfig, isPlaceholder, neutrals, sentryPlugin, telemetryPrivacyManifest, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
+import { blockedAndroidPermissions, easUpdateConfig, isPlaceholder, neutrals, sentryPlugin, telemetryPrivacyManifest, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import appSettings from './app.settings.ts';
@@ -30,6 +30,10 @@ export default (context: ConfigContext): ExpoConfig => {
     android: {
       ...config.android,
       package: settings.bundleIds.android,
+      blockedPermissions: [
+        ...(config.android?.blockedPermissions ?? []),
+        ...blockedAndroidPermissions(settings),
+      ],
       adaptiveIcon: {
         backgroundColor: settings.branding.assets.androidAdaptiveIcon.background,
         foregroundImage: settings.branding.assets.androidAdaptiveIcon.foreground,
