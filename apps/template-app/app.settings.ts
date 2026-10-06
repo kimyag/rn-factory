@@ -50,7 +50,7 @@ const settings: AppSettings = {
   payments: {
     revenueCatIosApiKey: 'REVENUECAT_IOS_API_KEY_PLACEHOLDER',
     revenueCatAndroidApiKey: 'REVENUECAT_ANDROID_API_KEY_PLACEHOLDER',
-    revenueCatTestStoreApiKey: 'REVENUECAT_TEST_STORE_API_KEY_PLACEHOLDER',
+    revenueCatTestStoreApiKey: 'test_jsSFDhNPPhdXxfjqZxgBShRatIJ',
   },
   telemetry: {
     sentryOrganization: 'SENTRY_ORGANIZATION_PLACEHOLDER',
