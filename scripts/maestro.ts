@@ -81,11 +81,19 @@ async function main() {
 
   const binary = maestroBinary();
   const results: [string, boolean][] = [];
-  for (const flow of flows) {
-    console.log(`\n== ${flow.name} (${options.lang}, ${options.theme})`);
-    // Maestro saves screenshots in its working directory.
-    const run = spawnSync(binary, maestroArgs(flow, values), { cwd: out, stdio: 'inherit' });
-    results.push([flow.name, run.status === 0]);
+  // A phone that goes to sleep shows a black screen to Maestro, so keep it awake while
+  // it is charging over USB, and put the setting back afterwards.
+  spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'usb']);
+  try {
+    for (const flow of flows) {
+      console.log(`\n== ${flow.name} (${options.lang}, ${options.theme})`);
+      spawnSync('adb', ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
+      // Maestro saves screenshots in its working directory.
+      const run = spawnSync(binary, maestroArgs(flow, values), { cwd: out, stdio: 'inherit' });
+      results.push([flow.name, run.status === 0]);
+    }
+  } finally {
+    spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'false']);
   }
 
   console.log(`\nScreenshots: ${out}`);

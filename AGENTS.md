@@ -63,7 +63,10 @@ compatible updates from other channels, so it is not a channel-isolation test.
 - Typecheck and lint must pass before a PR is ready.
 - Before opening a PR that changes UI, run the relevant Maestro flows on the device
   (`pnpm maestro <flow>`, see `docs/maestro.md`) and attach the screenshots to the PR.
-  Use the phone only when I say it is free, and say in the PR which flows ran.
+  Say in the PR which flows ran.
+- Device runs: only when the human says the device is free. If a device run fails twice,
+  stop, do not retry, and report the failures with your best guess of the cause. Never
+  loop on the device.
 - When I make a decision, add one line to `docs/decisions.md`.
 
 ## Code rules

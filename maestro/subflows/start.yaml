@@ -10,7 +10,12 @@ appId: ${APP_ID}
 - tapOn:
     text: Continue
     optional: true
-# The launcher sometimes ignores the link and shows its server list: pick this server.
+# The launcher sometimes ignores the link and shows its server list: open the link again.
+- runFlow:
+    when:
+      visible: '(?i)development servers'
+    commands:
+      - openLink: ${DEV_CLIENT_LINK}
 - tapOn:
     text: ${SERVER_URL}
     optional: true
