@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import settings from '../../../apps/template-app/app.settings.ts';
+import { testSettings as settings } from './test-settings.ts';
 import { easConfig, easUpdateConfig } from './eas.ts';
 
 test('every build profile selects its matching update channel and environment', () => {

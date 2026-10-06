@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import template from '../../../apps/template-app/app.settings.ts';
+import { testSettings as template } from './test-settings.ts';
 import { sanitizeCrashEvent } from './crash-data.ts';
 import { sentryPlugin, telemetryPrivacyManifest } from './telemetry-config.ts';
 import { consentRequest } from './telemetry-network.ts';

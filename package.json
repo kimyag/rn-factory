@@ -8,6 +8,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r --no-bail exec eslint .",
     "eas:config": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/eas-config.ts",
+    "new-app": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/new-app.ts",
     "assets:brand": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/brand-assets.mjs"
   },
   "keywords": [],
