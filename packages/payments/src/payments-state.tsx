@@ -12,6 +12,7 @@ type PaymentsState = {
   available: boolean;
   status: PremiumStatus;
   details: PremiumDetails | null;
+  identify: (appUserId: string) => Promise<void>;
   plans: () => Promise<Plan[]>;
   purchase: (plan: Plan) => Promise<PurchaseResult>;
   restore: () => Promise<RestoreResult>;
@@ -70,11 +71,16 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
     await Linking.openURL(await payments.managementUrl());
   }
 
+  async function identify(appUserId: string) {
+    await payments.identify(appUserId);
+    setEntitlement(await payments.entitlement());
+  }
+
   const status: PremiumStatus = entitlement === undefined ? 'loading' : entitlement === null ? 'inactive' : 'active';
 
   return (
     <PaymentsContext
-      value={{ available: payments.available, status, details: entitlement ?? null, plans: payments.plans, purchase, restore, manage }}
+      value={{ available: payments.available, status, details: entitlement ?? null, identify, plans: payments.plans, purchase, restore, manage }}
     >
       {children}
     </PaymentsContext>

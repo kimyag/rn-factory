@@ -99,7 +99,7 @@ export function buildSettings(template: AppSettings, values: NewAppValues, title
   settings.bundleIds = { ios: values.iosBundleId, android: values.androidBundleId };
   settings.appColor = { light: values.colorLight.toUpperCase(), dark: values.colorDark.toUpperCase() };
   settings.fonts = { ...settings.fonts, title };
-  settings.modules = { ...settings.modules, payments: false };
+  settings.modules = { ...settings.modules, payments: false, ai: false };
   settings.eas = { ...placeholderValues };
   settings.payments = { ...paymentPlaceholders };
   const validated = validateSettings(settings);
@@ -140,6 +140,7 @@ export function patchSettingsSource(source: string, settings: AppSettings): stri
   result = replaceOnce(result, /^ {4}dark: '.*',$/m, `    dark: ${quote(settings.appColor.dark)},`, 'dark app color');
   result = replaceOnce(result, /^ {4}title: (?:'system'|\{\n(?: {6}.*\n)+? {4}\}),$/m, titleBlock, 'title font');
   result = replaceOnce(result, /^ {4}payments: (?:true|false),$/m, '    payments: false,', 'payments module switch');
+  result = replaceOnce(result, /^ {4}ai: (?:true|false),$/m, '    ai: false,', 'AI module switch');
   for (const [key, value] of Object.entries(settings.payments)) {
     result = replaceOnce(result, new RegExp(`^ {4}${key}: '.*',$`, 'm'), `    ${key}: ${quote(value)},`, key);
   }

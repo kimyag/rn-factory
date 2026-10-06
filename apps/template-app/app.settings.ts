@@ -44,6 +44,10 @@ const settings: AppSettings = {
     payments: true,
     crashReports: true,
     analytics: true,
+    ai: false,
+  },
+  ai: {
+    serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER',
   },
   // The Test Store key works in development builds only. The store keys are
   // placeholders until #14, #15, and #16.

@@ -35,6 +35,7 @@ export const testSettings: AppSettings = {
   contactEmail: 'contact-placeholder@example.com',
   modules: {
     payments: false,
+    ai: false,
     crashReports: true,
     analytics: true,
   },
@@ -43,6 +44,7 @@ export const testSettings: AppSettings = {
     revenueCatAndroidApiKey: 'REVENUECAT_ANDROID_API_KEY_PLACEHOLDER',
     revenueCatTestStoreApiKey: 'REVENUECAT_TEST_STORE_API_KEY_PLACEHOLDER',
   },
+  ai: { serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER' },
   telemetry: {
     sentryOrganization: 'SENTRY_ORGANIZATION_PLACEHOLDER',
     sentryProject: 'SENTRY_PROJECT_PLACEHOLDER',

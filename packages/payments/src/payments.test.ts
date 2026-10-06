@@ -26,7 +26,7 @@ const keys = {
   revenueCatAndroidApiKey: 'goog_android',
   revenueCatTestStoreApiKey: 'test_store',
 };
-const modules = { payments: true, crashReports: false, analytics: false };
+const modules = { payments: true, ai: false, crashReports: false, analytics: false };
 const bundleIds = { ios: 'com.example.app', android: 'com.example.app' };
 const configured: PaymentsSettings = { modules, payments: keys, bundleIds };
 const monthlyDetails: PremiumDetails = { expires: '2026-11-06T00:00:00Z', renews: true, billingIssue: false };
@@ -42,6 +42,7 @@ function fixture(settings: PaymentsSettings, environment: PaymentsEnvironment, o
   let notify: ((details: PremiumDetails | null) => void) | undefined;
   const vendor: PaymentsVendor = {
     configure: (apiKey) => calls.push(`configure ${apiKey}`),
+    identify: async (appUserId) => { calls.push(`identify ${appUserId}`); },
     entitlementDetails: async (entitlement) => {
       calls.push(`entitlement ${entitlement}`);
       return monthlyDetails;

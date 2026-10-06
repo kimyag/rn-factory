@@ -93,6 +93,7 @@ export const appSettingsSchema = z.strictObject({
     payments: z.boolean(),
     crashReports: z.boolean(),
     analytics: z.boolean(),
+    ai: z.boolean(),
   }),
   telemetry: z.strictObject({
     sentryOrganization: z.string().trim().min(1),
@@ -111,6 +112,12 @@ export const appSettingsSchema = z.strictObject({
     revenueCatIosApiKey: realOrPlaceholder(/^appl_\w+$/, 'must be the RevenueCat iOS API key (appl_…)'),
     revenueCatAndroidApiKey: realOrPlaceholder(/^goog_\w+$/, 'must be the RevenueCat Android API key (goog_…)'),
     revenueCatTestStoreApiKey: realOrPlaceholder(/^test_\w+$/, 'must be the RevenueCat Test Store API key (test_…)'),
+  }),
+  ai: z.strictObject({
+    serverUrl: z.string().refine(
+      (value) => isPlaceholder(value) || z.url({ protocol: /^https$/ }).safeParse(value).success,
+      'must be an HTTPS EAS Hosting URL or a NAME_PLACEHOLDER',
+    ),
   }),
   eas: z.strictObject({
     owner: realOrPlaceholder(/^[a-z0-9][a-z0-9_-]*$/, 'must be your Expo username or organization'),

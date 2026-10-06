@@ -4,7 +4,7 @@ import test from 'node:test';
 import { blockedAndroidPermissions } from './payments-config.ts';
 import { appSettingsSchema } from './settings.ts';
 
-const modules = { payments: true, crashReports: false, analytics: false };
+const modules = { payments: true, ai: false, crashReports: false, analytics: false };
 
 test('only an app with payments off blocks the Android billing permission', () => {
   assert.deepEqual(blockedAndroidPermissions({ modules }), []);

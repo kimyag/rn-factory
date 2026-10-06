@@ -1,0 +1,24 @@
+{
+  "name": "@factory/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "dependencies": {
+    "@factory/app": "workspace:*",
+    "@factory/core": "workspace:*",
+    "@factory/payments": "workspace:*",
+    "@factory/ui": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@types/react": "*",
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

@@ -17,6 +17,7 @@ export type PaymentsEnvironment = { platform: string; development: boolean };
 
 export type PaymentsVendor = {
   configure: (apiKey: string) => void;
+  identify: (appUserId: string) => Promise<void>;
   entitlementDetails: (entitlement: string) => Promise<PremiumDetails | null>;
   plans: () => Promise<Plan[]>;
   purchase: (planId: string) => Promise<PurchaseResult>;
@@ -86,6 +87,9 @@ export function createPayments(
 
   return {
     available: apiKey !== null,
+    async identify(appUserId: string): Promise<void> {
+      if (apiKey !== null) await (await ready(apiKey)).identify(appUserId);
+    },
     async entitlement(): Promise<PremiumDetails | null> {
       if (apiKey === null) {
         return null;
