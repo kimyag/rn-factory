@@ -19,7 +19,8 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
   fonts, language, onboarding guard), `useText`, and `useAppSettings`.
 - `packages/screens` – `@factory/screens`: onboarding and settings screens.
 - `packages/ui` – `@factory/ui`: tokens and components; see `packages/ui/DESIGN.md`.
-- `packages/payments` – RevenueCat module, on or off from app settings.
+- `packages/payments` – `@factory/payments`: RevenueCat behind a small API, the paywall,
+  and `usePremium()` to check access; on or off from app settings. See `docs/payments.md`.
 - `docs/decisions.md` – decision log.
 - `.github/` – issue and PR templates, CI.
 

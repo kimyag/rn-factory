@@ -7,4 +7,6 @@ export const en = {
   'onboarding.2.body': 'Placeholder for the second page.',
   'onboarding.3.title': 'Third page',
   'onboarding.3.body': 'Placeholder for the last page. The button below finishes onboarding.',
+  'paywall.title': 'Premium',
+  'paywall.body': 'Placeholder for what premium adds. Each app writes its own line.',
 } as const;

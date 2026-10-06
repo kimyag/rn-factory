@@ -27,6 +27,8 @@ export const tr: Translation<typeof en> = {
   'settings.privacy': 'Gizlilik politikası',
   'settings.contact': 'İletişim',
   'settings.rate': 'Uygulamayı değerlendir',
-  'settings.restore': 'Satın alımları geri yükle',
   'settings.version': 'Sürüm',
+  'settings.premium': 'Premium',
+  'settings.premium.plans': 'Planları gör',
+  'settings.premium.active': 'Premium etkin',
 };

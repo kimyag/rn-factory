@@ -23,6 +23,8 @@ export const en = {
   'settings.privacy': 'Privacy policy',
   'settings.contact': 'Contact',
   'settings.rate': 'Rate the app',
-  'settings.restore': 'Restore purchases',
   'settings.version': 'Version',
+  'settings.premium': 'Premium',
+  'settings.premium.plans': 'See plans',
+  'settings.premium.active': 'Premium is active',
 } as const;

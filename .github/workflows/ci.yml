@@ -28,4 +28,6 @@ jobs:
       - run: node --test packages/screens/src/error-recovery.test.ts
       - run: node --test packages/core/src/eas.test.ts
       - run: node --test packages/core/src/telemetry.test.ts
+      - run: node --test packages/core/src/payments-config.test.ts
+      - run: node --test packages/payments/src/payments.test.ts
       - run: pnpm eas:config --check

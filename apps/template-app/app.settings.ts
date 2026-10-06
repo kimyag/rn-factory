@@ -41,9 +41,16 @@ const settings: AppSettings = {
   privacyUrl: 'https://example.com/PRIVACY_URL_PLACEHOLDER',
   contactEmail: 'contact-placeholder@example.com',
   modules: {
-    payments: false,
+    payments: true,
     crashReports: true,
     analytics: true,
+  },
+  // The Test Store key works in development builds only. The store keys are
+  // placeholders until #14, #15, and #16.
+  payments: {
+    revenueCatIosApiKey: 'REVENUECAT_IOS_API_KEY_PLACEHOLDER',
+    revenueCatAndroidApiKey: 'REVENUECAT_ANDROID_API_KEY_PLACEHOLDER',
+    revenueCatTestStoreApiKey: 'REVENUECAT_TEST_STORE_API_KEY_PLACEHOLDER',
   },
   telemetry: {
     sentryOrganization: 'SENTRY_ORGANIZATION_PLACEHOLDER',
