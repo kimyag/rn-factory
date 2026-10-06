@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { appColorProblems } from '../packages/core/src/index.ts';
+import { appColorProblems, isPlaceholder } from '../packages/core/src/index.ts';
 import { bundledFonts, copiedFiles, copiedFolders, loadSettings, renderFonts, scaffold, slugFromName, type NewAppValues } from './new-app-lib.ts';
 
 const templateDir = fileURLToPath(new URL('../apps/template-app/', import.meta.url));
@@ -44,11 +44,12 @@ test('a new app gets its own validated settings, fonts file, and no template ide
     assert.equal(settings.modules.payments, false);
     assert.equal(settings.eas.owner, 'EAS_OWNER_PLACEHOLDER');
     assert.equal(settings.eas.projectId, 'EAS_PROJECT_ID_PLACEHOLDER');
+    assert.deepEqual(Object.values(settings.payments).filter((key) => !isPlaceholder(key)), []);
 
     const template = await loadSettings(join(templateDir, 'app.settings.ts'));
     for (const file of walk(target)) {
       const text = readFileSync(join(target, file), file.endsWith('.ttf') ? 'latin1' : 'utf8');
-      for (const leak of ['templateapp', 'template-app', 'Template App', template.eas.projectId, template.eas.owner]) {
+      for (const leak of ['templateapp', 'template-app', 'Template App', template.eas.projectId, template.eas.owner, template.payments.revenueCatTestStoreApiKey]) {
         assert.equal(text.includes(leak), false, `${file} still contains ${leak}`);
       }
     }
