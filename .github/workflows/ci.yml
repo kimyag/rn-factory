@@ -30,4 +30,5 @@ jobs:
       - run: node --test packages/core/src/telemetry.test.ts
       - run: node --test packages/core/src/payments-config.test.ts
       - run: node --test packages/payments/src/payments.test.ts
+      - run: node --test scripts/new-app.test.ts
       - run: pnpm eas:config --check

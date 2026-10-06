@@ -1,14 +1,10 @@
-import { FactoryProvider, useOnboarding, useTelemetry, type FontFiles } from '@factory/app';
+import { FactoryProvider, useOnboarding, useTelemetry } from '@factory/app';
 import { PaymentsProvider } from '@factory/payments';
 import { RouteErrorBoundary } from '@factory/screens';
 import { Stack } from 'expo-router';
 
 import settings from '../../app.settings.ts';
-
-const fontFiles: FontFiles = {
-  title: require('../../assets/fonts/Newsreader28pt-Medium.ttf'),
-  mono: require('../../assets/fonts/IBMPlexMono-Regular.ttf'),
-};
+import { fontFiles } from '../fonts.ts';
 
 export default function RootLayout() {
   return (

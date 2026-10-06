@@ -8,7 +8,8 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
 - Expo managed workflow with Continuous Native Generation (CNG), Expo Router.
 - Expo changes every SDK. Before using an Expo API, read the docs for the SDK
   major in the app's `package.json`: `https://docs.expo.dev/versions/v<major>.0.0/`.
-- Goal: each new app is one settings file plus one feature folder.
+- Goal: each new app is one settings file plus one feature folder. `pnpm new-app` makes it
+  from `apps/template-app`, which stays the source: keep it typechecked and runnable.
 
 ## Folder map
 - `apps/<app>/` – one app: `app.settings.ts` and its feature folder `src/feature/`.
@@ -31,6 +32,7 @@ pnpm --filter <app> start       # start the dev server
 pnpm typecheck                  # typecheck
 pnpm lint                       # lint
 pnpm eas:config                 # write apps/*/eas.json from app settings (never edit eas.json)
+pnpm new-app "My App"            # new app from apps/template-app (asks for missing values; --help)
 ```
 Daily development uses the `development` build (dev client): build it once with
 `npx eas-cli build --profile development --platform android` (or `ios` for the simulator), then `pnpm --filter <app> start`.
