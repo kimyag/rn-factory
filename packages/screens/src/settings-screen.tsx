@@ -53,13 +53,13 @@ export function SettingsScreen() {
     <Screen scroll>
       <Stack.Screen options={{ title: t('settings.title') }} />
       <Section title={t('settings.theme')}>
-        <ChoiceGroup options={themeOptions} selected={mode} onSelect={(value) => {
+        <ChoiceGroup idPrefix="theme" options={themeOptions} selected={mode} onSelect={(value) => {
           setMode(value);
           void analytics.track('theme_changed');
         }} />
       </Section>
       <Section title={t('settings.language')}>
-        <ChoiceGroup options={languageOptions} selected={choice} onSelect={(value) => {
+        <ChoiceGroup idPrefix="language" options={languageOptions} selected={choice} onSelect={(value) => {
           setChoice(value);
           void analytics.track('language_changed');
         }} />
@@ -83,19 +83,28 @@ export function SettingsScreen() {
       {premium.available && (
         <Section title={t('settings.premium')}>
           {premium.status === 'inactive' && (
-            <ActionRow label={t('settings.premium.plans')} role="button" onPress={premium.openPaywall} />
+            <ActionRow
+              testID="premium-plans"
+              label={t('settings.premium.plans')}
+              role="button"
+              onPress={premium.openPaywall}
+            />
           )}
           {premium.status === 'active' && (
             <View style={styles.row}>
-              <Text>{t('settings.premium.active')}</Text>
+              <Text testID="premium-active">{t('settings.premium.active')}</Text>
             </View>
           )}
           {premium.status === 'active' && <PremiumSummary />}
           {premium.status === 'active' && premium.details?.expires !== null && (
             <ActionRow label={t('settings.premium.manage')} role="link" onPress={() => void premium.manage()} />
           )}
-          <ActionRow label={restoring.label} role="button" onPress={restoring.restore} />
-          {restoring.message !== null && <Text variant="caption">{restoring.message}</Text>}
+          <ActionRow testID="restore" label={restoring.label} role="button" onPress={restoring.restore} />
+          {restoring.message !== null && (
+            <Text testID="restore-result" variant="caption">
+              {restoring.message}
+            </Text>
+          )}
           {restoring.hint !== null && <Text variant="caption">{restoring.hint}</Text>}
         </Section>
       )}
@@ -143,10 +152,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function ChoiceGroup<T extends string>({
+  idPrefix,
   options,
   selected,
   onSelect,
 }: {
+  idPrefix: string;
   options: Option<T>[];
   selected: T;
   onSelect: (value: T) => void;
@@ -160,6 +171,7 @@ function ChoiceGroup<T extends string>({
         return (
           <Pressable
             key={option.value}
+            testID={`${idPrefix}-${option.value}`}
             accessibilityRole="radio"
             accessibilityState={{ checked: isSelected, selected: isSelected }}
             onPress={() => onSelect(option.value)}
@@ -174,11 +186,22 @@ function ChoiceGroup<T extends string>({
   );
 }
 
-function ActionRow({ label, role, onPress }: { label: string; role: AccessibilityRole; onPress: () => void }) {
+function ActionRow({
+  label,
+  role,
+  onPress,
+  testID,
+}: {
+  label: string;
+  role: AccessibilityRole;
+  onPress: () => void;
+  testID?: string;
+}) {
   const styles = useStyles();
 
   return (
     <Pressable
+      testID={testID}
       accessibilityRole={role}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
@@ -193,7 +216,7 @@ export function SettingsButton() {
   const styles = useStyles();
 
   return (
-    <Link href="/settings" style={styles.link}>
+    <Link testID="settings-open" href="/settings" style={styles.link}>
       {t('settings.title')}
     </Link>
   );

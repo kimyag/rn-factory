@@ -21,6 +21,7 @@ type ButtonProps = {
   disabled?: boolean;
   selected?: boolean;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -32,6 +33,7 @@ export function Button({
   disabled = false,
   selected = false,
   style,
+  testID,
 }: ButtonProps) {
   const theme = useTheme();
   const styles = useStyles();
@@ -48,6 +50,7 @@ export function Button({
 
   return (
     <AnimatedPressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected }}
       disabled={disabled}

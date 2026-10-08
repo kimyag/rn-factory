@@ -9,7 +9,7 @@ export function HomeScreen() {
 
   return (
     <Screen style={styles.centered}>
-      <Text>{t('feature.body')}</Text>
+      <Text testID="feature-home">{t('feature.body')}</Text>
     </Screen>
   );
 }

@@ -84,7 +84,7 @@ export function PaywallScreen({ title, body }: { title: string; body: string }) 
   return (
     <Screen scroll style={{ paddingTop: insets.top + spacing.edge }}>
       <View style={styles.top}>
-        <Pressable accessibilityRole="button" onPress={close} hitSlop={spacing.gapWide}>
+        <Pressable testID="paywall-close" accessibilityRole="button" onPress={close} hitSlop={spacing.gapWide}>
           <Text>{t('paywall.close')}</Text>
         </Pressable>
       </View>
@@ -141,6 +141,7 @@ function Plans({ plans, purchase, onPurchased }: PlansProps) {
           return (
             <Pressable
               key={plan.id}
+              testID={`paywall-plan-${plan.period}`}
               accessibilityRole="radio"
               accessibilityState={{ checked, selected: checked, disabled: buying }}
               disabled={buying}
@@ -160,6 +161,7 @@ function Plans({ plans, purchase, onPurchased }: PlansProps) {
       )}
       {lifetime && <Text variant="caption">{t('paywall.lifetime')}</Text>}
       <Button
+        testID="paywall-continue"
         title={t('paywall.continue')}
         onPress={() => void buy()}
         disabled={selected === null || buying}
@@ -167,12 +169,13 @@ function Plans({ plans, purchase, onPurchased }: PlansProps) {
       {failed && <Text>{t('paywall.purchaseFailed')}</Text>}
       {pending && <Text>{t('paywall.purchasePending')}</Text>}
       <Button
+        testID="paywall-restore"
         variant="secondary"
         title={restoring.label}
         onPress={restoring.restore}
         disabled={restoring.busy || buying}
       />
-      {restoring.message !== null && <Text>{restoring.message}</Text>}
+      {restoring.message !== null && <Text testID="paywall-restore-result">{restoring.message}</Text>}
       {restoring.hint !== null && <Text variant="caption">{restoring.hint}</Text>}
       <Pressable
         accessibilityRole="link"

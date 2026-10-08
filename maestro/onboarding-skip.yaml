@@ -1,0 +1,19 @@
+# Skip jumps to the analytics question, which still has to be answered.
+appId: ${APP_ID}
+---
+- runFlow: subflows/start.yaml
+- takeScreenshot: onboarding-skip-1
+- tapOn:
+    id: onboarding-skip
+- assertVisible:
+    id: analytics-decline
+- assertNotVisible:
+    id: onboarding-skip
+- takeScreenshot: onboarding-skip-analytics-question
+- tapOn:
+    id: analytics-decline
+- extendedWaitUntil:
+    visible:
+      id: feature-home
+    timeout: 15000
+- takeScreenshot: onboarding-skip-done

@@ -103,6 +103,7 @@ export function OnboardingScreen({ pages }: { pages: OnboardingPages }) {
       <View style={styles.top}>
         {asking === null && (
           <Pressable
+            testID="onboarding-skip"
             accessibilityRole="button"
             onPress={() => end('skip')}
             disabled={leaving !== null}
@@ -147,6 +148,7 @@ export function OnboardingScreen({ pages }: { pages: OnboardingPages }) {
       </View>
       {asking === null ? (
         <Button
+          testID={last ? 'onboarding-done' : 'onboarding-next'}
           title={last ? t('onboarding.done') : t('onboarding.next')}
           onPress={next}
           disabled={leaving !== null}
@@ -154,12 +156,14 @@ export function OnboardingScreen({ pages }: { pages: OnboardingPages }) {
       ) : (
         <View style={styles.choices}>
           <Button
+            testID="analytics-share"
             variant="secondary"
             title={t('analytics.share')}
             onPress={() => choose(true)}
             disabled={leaving !== null}
           />
           <Button
+            testID="analytics-decline"
             variant="secondary"
             title={t('analytics.dontShare')}
             onPress={() => choose(false)}
