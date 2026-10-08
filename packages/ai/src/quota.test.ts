@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { reserveQuota, utcDay, type QuotaStore } from './quota.ts';
 import { handleGenerate } from './server.ts';
 import { issueSession } from './identity.ts';
+import { callProvider } from './provider.ts';
 
 type Entry = { value: number; expiresAt: number };
 
@@ -111,4 +112,129 @@ test('server denies a limit hit without calling the fake provider', async () => 
   }, fakeFetch);
   assert.equal(response.status, 429);
   assert.equal(providerCalls, 0);
+});
+
+function openModelEnv(store: QuotaStore) {
+  return {
+    AI_MODULE_ENABLED: 'true', AI_PROVIDER: 'openai-compatible', AI_MODEL: 'openai/gpt-oss-20b:free',
+    AI_BASE_URL: 'https://trusted.test/v1', AI_INPUT_USD_PER_MTOK: '0', AI_OUTPUT_USD_PER_MTOK: '0',
+    OPENAI_COMPATIBLE_API_KEY: 'test-open-model-key', AI_SIGNING_KEY: 'test-signing-secret',
+    UPSTASH_REDIS_REST_URL: store.url, UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
+  };
+}
+
+test('compatible provider rejects an app endpoint that does not match the server allowlist', async () => {
+  const { store } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  let providerCalls = 0;
+  const response = await handleGenerate(new Request('https://app.test/ai/generate', {
+    method: 'POST', headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json', 'X-Real-IP': '192.0.2.1' },
+    body: JSON.stringify({
+      task: 'profile', input: 'A teammate description', stream: false,
+      openModelBaseUrl: 'https://attacker.test/v1', openModel: 'openai/gpt-oss-20b:free',
+    }),
+  }), openModelEnv(store), async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    providerCalls++;
+    return Response.json({});
+  });
+  assert.equal(response.status, 400);
+  assert.equal(providerCalls, 0);
+});
+
+test('compatible provider retries invalid profile JSON exactly once and keeps its key server-side', async () => {
+  const { store } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  const calls: RequestInit[] = [];
+  const outputs = ['not JSON', '{"summary":"Clear communicator","strengths":[],"workingStyle":"Collaborative","growthAreas":[]}'];
+  const response = await handleGenerate(new Request('https://app.test/ai/generate', {
+    method: 'POST', headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json', 'X-Real-IP': '192.0.2.1' },
+    body: JSON.stringify({
+      task: 'profile', input: 'Observed behavior', stream: false,
+      openModelBaseUrl: 'https://trusted.test/v1', openModel: 'openai/gpt-oss-20b:free',
+    }),
+  }), openModelEnv(store), async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    assert.equal(String(input), 'https://trusted.test/v1/chat/completions');
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-open-model-key');
+    assert.equal(init?.redirect, 'error');
+    calls.push(init ?? {});
+    return Response.json({
+      choices: [{ message: { content: outputs[calls.length - 1] }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    });
+  });
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 2);
+  const body = await response.json() as { result: { summary: string } };
+  assert.equal(body.result.summary, 'Clear communicator');
+  const firstPayload = JSON.parse(String(calls[0]?.body)) as { messages: { content: string }[] };
+  const retryPayload = JSON.parse(String(calls[1]?.body)) as { messages: { content: string }[] };
+  assert.match(firstPayload.messages[0]!.content, /growthAreas/);
+  assert.match(retryPayload.messages[1]!.content, /previous attempt was invalid/);
+});
+
+test('compatible provider uses one call when the first profile is valid', async () => {
+  const { store } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  let providerCalls = 0;
+  const response = await handleGenerate(new Request('https://app.test/ai/generate', {
+    method: 'POST', headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json', 'X-Real-IP': '192.0.2.1' },
+    body: JSON.stringify({
+      task: 'profile', input: 'Observed behavior', stream: false,
+      openModelBaseUrl: 'https://trusted.test/v1', openModel: 'openai/gpt-oss-20b:free',
+    }),
+  }), openModelEnv(store), async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    providerCalls++;
+    return Response.json({
+      choices: [{ message: { content: '{"summary":"Ready","strengths":[],"workingStyle":"","growthAreas":[]}', }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    });
+  });
+  assert.equal(response.status, 200);
+  assert.equal(providerCalls, 1);
+});
+
+test('compatible provider stops after one retry when both profiles are invalid', async () => {
+  const { store } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  let providerCalls = 0;
+  const response = await handleGenerate(new Request('https://app.test/ai/generate', {
+    method: 'POST', headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json', 'X-Real-IP': '192.0.2.1' },
+    body: JSON.stringify({
+      task: 'profile', input: 'Observed behavior', stream: false,
+      openModelBaseUrl: 'https://trusted.test/v1', openModel: 'openai/gpt-oss-20b:free',
+    }),
+  }), openModelEnv(store), async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    providerCalls++;
+    return Response.json({ choices: [{ message: { content: '{}' }, finish_reason: 'stop' }] });
+  });
+  assert.equal(response.status, 502);
+  assert.equal(providerCalls, 2);
+});
+
+test('compatible non-streaming calls reject truncated output', async () => {
+  await assert.rejects(callProvider({
+    provider: 'openai-compatible', apiKey: 'secret', baseUrl: 'https://trusted.test/v1',
+    model: 'test-model', task: 'answer', input: 'hello',
+    fetcher: async () => Response.json({
+      choices: [{ message: { content: 'partial' }, finish_reason: 'length' }],
+    }),
+  }), /Provider response incomplete/);
+});
+
+test('compatible streaming call rejects a truncated response', async () => {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"partial"},"finish_reason":"length"}]}\n\ndata: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+  await assert.rejects(callProvider({
+    provider: 'openai-compatible', apiKey: 'secret', baseUrl: 'https://trusted.test/v1',
+    model: 'test-model', task: 'answer', input: 'hello', onDelta: () => undefined,
+    fetcher: async () => new Response(stream),
+  }), /Provider response incomplete/);
 });

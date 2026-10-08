@@ -1,7 +1,10 @@
 const openAiModel = process.env.AI_OPENAI_MODEL ?? 'gpt-6-luna';
 const anthropicModel = process.env.AI_ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001';
+const compatibleBaseUrl = process.env.OPENAI_COMPATIBLE_BASE_URL ?? 'https://openrouter.ai/api/v1';
+const compatibleModel = process.env.OPENAI_COMPATIBLE_MODEL ?? 'openai/gpt-oss-20b:free';
 const openAiKey = process.env.OPENAI_API_KEY;
 const anthropicKey = process.env.ANTHROPIC_API_KEY;
+const compatibleKey = process.env.OPENAI_COMPATIBLE_API_KEY;
 
 const schema = {
   type: 'object',
@@ -29,6 +32,10 @@ const rates = {
   anthropic: {
     input: rate('ANTHROPIC_INPUT_USD_PER_MTOK', anthropicModel, 'claude-haiku-4-5-20251001', 1),
     output: rate('ANTHROPIC_OUTPUT_USD_PER_MTOK', anthropicModel, 'claude-haiku-4-5-20251001', 5),
+  },
+  'openai-compatible': {
+    input: rate('OPENAI_COMPATIBLE_INPUT_USD_PER_MTOK', compatibleModel, 'openai/gpt-oss-20b:free', 0),
+    output: rate('OPENAI_COMPATIBLE_OUTPUT_USD_PER_MTOK', compatibleModel, 'openai/gpt-oss-20b:free', 0),
   },
 };
 
@@ -62,7 +69,8 @@ async function compare(provider, model, sample) {
         text: { format: { type: 'json_schema', name: 'teammate_profile', schema, strict: true } },
       }),
     })
-    : await fetch('https://api.anthropic.com/v1/messages', {
+    : provider === 'anthropic'
+      ? await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,17 +84,37 @@ async function compare(provider, model, sample) {
         max_tokens: 1_500,
         output_config: { format: { type: 'json_schema', schema } },
       }),
-    });
+      })
+      : await fetch(`${compatibleBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${requiredKey(compatibleKey, 'OPENAI_COMPATIBLE_API_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: 'Create a concise work profile using only supplied observations. Do not infer sensitive traits or invent facts. Use an empty array when there is not enough evidence.' },
+            { role: 'user', content: sample },
+          ],
+          max_tokens: 1_500,
+          response_format: { type: 'json_object' },
+        }),
+      });
 
   if (!response.ok) throw new Error(`${provider} returned HTTP ${response.status}: ${await response.text()}`);
   const body = await response.json();
   const raw = provider === 'openai'
     ? (body.output ?? []).flatMap((item) => item.content ?? []).find((item) => item.type === 'output_text')?.text
-    : body.content?.find((item) => item.type === 'text')?.text;
+    : provider === 'anthropic'
+      ? body.content?.find((item) => item.type === 'text')?.text
+      : body.choices?.[0]?.message?.content;
   if (typeof raw !== 'string') throw new Error(`${provider} returned no structured text.`);
   const usage = provider === 'openai'
     ? { input: body.usage?.input_tokens ?? 0, output: body.usage?.output_tokens ?? 0 }
-    : { input: body.usage?.input_tokens ?? 0, output: body.usage?.output_tokens ?? 0 };
+    : provider === 'anthropic'
+      ? { input: body.usage?.input_tokens ?? 0, output: body.usage?.output_tokens ?? 0 }
+      : { input: body.usage?.prompt_tokens ?? 0, output: body.usage?.completion_tokens ?? 0 };
   const pricing = rates[provider];
   return {
     provider,
@@ -101,12 +129,14 @@ async function compare(provider, model, sample) {
 try {
   requiredKey(openAiKey, 'OPENAI_API_KEY');
   requiredKey(anthropicKey, 'ANTHROPIC_API_KEY');
+  requiredKey(compatibleKey, 'OPENAI_COMPATIBLE_API_KEY');
   for (const [index, sample] of samples.entries()) {
-    const [openai, anthropic] = await Promise.all([
+    const [openai, anthropic, compatible] = await Promise.all([
       compare('openai', openAiModel, sample),
       compare('anthropic', anthropicModel, sample),
+      compare('openai-compatible', compatibleModel, sample),
     ]);
-    process.stdout.write(`${JSON.stringify({ sample: index + 1, input: sample, results: [openai, anthropic] }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ sample: index + 1, input: sample, results: [openai, anthropic, compatible] }, null, 2)}\n`);
   }
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

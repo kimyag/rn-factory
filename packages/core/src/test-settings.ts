@@ -45,7 +45,11 @@ export const testSettings: AppSettings = {
     revenueCatAndroidApiKey: 'REVENUECAT_ANDROID_API_KEY_PLACEHOLDER',
     revenueCatTestStoreApiKey: 'REVENUECAT_TEST_STORE_API_KEY_PLACEHOLDER',
   },
-  ai: { serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER' },
+  ai: {
+    serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER',
+    openModelBaseUrl: 'OPEN_MODEL_BASE_URL_PLACEHOLDER',
+    openModel: 'gpt-oss-20b:free',
+  },
   telemetry: {
     sentryOrganization: 'SENTRY_ORGANIZATION_PLACEHOLDER',
     sentryProject: 'SENTRY_PROJECT_PLACEHOLDER',

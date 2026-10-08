@@ -5,6 +5,8 @@ export const requestSchema = z.strictObject({
   task: z.enum(['profile', 'answer']),
   input: inputSchema,
   stream: z.boolean().default(false),
+  openModelBaseUrl: z.string().optional(),
+  openModel: z.string().optional(),
 });
 
 export type AiRequest = z.input<typeof requestSchema>;

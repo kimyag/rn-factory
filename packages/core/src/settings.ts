@@ -125,6 +125,11 @@ export const appSettingsSchema = z.strictObject({
       (value) => isPlaceholder(value) || z.url({ protocol: /^https$/ }).safeParse(value).success,
       'must be an HTTPS EAS Hosting URL or a NAME_PLACEHOLDER',
     ),
+    openModelBaseUrl: z.string().refine(
+      (value) => isPlaceholder(value) || z.url({ protocol: /^https$/ }).safeParse(value).success,
+      'must be an HTTPS OpenAI-compatible API base URL or a NAME_PLACEHOLDER',
+    ),
+    openModel: z.string().trim().min(1),
   }),
   eas: z.strictObject({
     owner: realOrPlaceholder(/^[a-z0-9][a-z0-9_-]*$/, 'must be your Expo username or organization'),

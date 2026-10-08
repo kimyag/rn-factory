@@ -29,7 +29,9 @@ and on/off switch through `@factory/reminders`. Apps that need more reminders
 can build that experience in their own feature folder using the shared package
 API. See [docs/ai.md](docs/ai.md) for the AI disclosure and OpenRouter free-model
 data policy.
-Provider credentials stay on the server, which enforces its provider allowlist.
+The AI module supports OpenAI, Anthropic, and an OpenAI-compatible provider.
+Compatible base URLs and model names must match the server allowlist. Provider
+credentials stay on the server.
 
 ## Create and run an app
 
