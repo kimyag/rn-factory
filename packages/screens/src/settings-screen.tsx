@@ -14,11 +14,14 @@ import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Linking, Platform, Pressable, StyleSheet, Switch, View, type AccessibilityRole } from 'react-native';
+import { Suspense, lazy } from 'react';
 import type { ReactNode } from 'react';
 
 import { text } from './text/index.ts';
 
 type Option<T extends string> = { value: T; label: string };
+
+const RemindersRow = lazy(() => import('./reminders-row.tsx').then(({ RemindersRow: Component }) => ({ default: Component })));
 
 export function SettingsScreen() {
   const t = useText(text);
@@ -79,6 +82,11 @@ export function SettingsScreen() {
             />
           </View>
         </Section>
+      )}
+      {settings.modules.reminders && (
+        <Suspense fallback={null}>
+          <RemindersRow />
+        </Suspense>
       )}
       {premium.available && (
         <Section title={t('settings.premium')}>

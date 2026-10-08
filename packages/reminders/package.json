@@ -1,0 +1,15 @@
+{
+  "name": "@factory/reminders",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "pnpm --filter template-app exec tsc --noEmit -p ../../packages/reminders/tsconfig.json"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "expo-notifications": "*",
+    "react-native": "*"
+  }
+}

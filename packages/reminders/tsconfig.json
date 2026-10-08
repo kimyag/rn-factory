@@ -1,0 +1,4 @@
+{
+  "extends": "../../apps/template-app/tsconfig.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

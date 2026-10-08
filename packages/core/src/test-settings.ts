@@ -38,6 +38,7 @@ export const testSettings: AppSettings = {
     ai: false,
     crashReports: true,
     analytics: true,
+    reminders: false,
   },
   payments: {
     revenueCatIosApiKey: 'REVENUECAT_IOS_API_KEY_PLACEHOLDER',

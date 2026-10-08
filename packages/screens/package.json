@@ -8,6 +8,7 @@
     "@factory/app": "workspace:*",
     "@factory/core": "workspace:*",
     "@factory/payments": "workspace:*",
+    "@factory/reminders": "workspace:*",
     "@factory/ui": "workspace:*"
   },
   "peerDependencies": {

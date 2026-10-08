@@ -3,8 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@factory/app": "workspace:*",
     "@factory/ai": "workspace:*",
+    "@factory/app": "workspace:*",
     "@factory/core": "workspace:*",
     "@factory/payments": "workspace:*",
     "@factory/screens": "workspace:*",
@@ -19,6 +19,7 @@
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.11",
     "expo-localization": "~57.0.2",
+    "expo-notifications": "~57.0.22",
     "expo-router": "~57.0.24",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
