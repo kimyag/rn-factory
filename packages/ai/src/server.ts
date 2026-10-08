@@ -9,6 +9,7 @@ type ServerConfig = {
   store: QuotaStore;
   provider: ProviderName;
   apiKey: string;
+  baseUrl: string | null;
   model: string;
   inputRate: number;
   outputRate: number;
@@ -24,20 +25,46 @@ function configured(value: string | undefined): value is string {
   return !!value && !value.includes('PLACEHOLDER');
 }
 
+function nonNegativeRate(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const rate = Number(value);
+  return Number.isFinite(rate) && rate >= 0 ? rate : null;
+}
+
+function secureBaseUrl(value: string | undefined): string | null {
+  if (!configured(value)) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash
+      ? url.toString().replace(/\/$/, '')
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function config(env: ServerEnv, fetcher: typeof fetch): ServerConfig | null {
   if (env.AI_MODULE_ENABLED !== 'true') return null;
-  const provider = env.AI_PROVIDER === 'anthropic' ? 'anthropic' : env.AI_PROVIDER === 'openai' ? 'openai' : null;
+  const provider = env.AI_PROVIDER === 'anthropic' ? 'anthropic'
+    : env.AI_PROVIDER === 'openai' ? 'openai'
+      : env.AI_PROVIDER === 'openai-compatible' ? 'openai-compatible' : null;
   if (!provider) return null;
-  const model = env.AI_MODEL ?? (provider === 'openai' ? 'gpt-6-luna' : 'claude-haiku-4-5-20251001');
-  const rate = models[model as keyof typeof models];
-  const apiKey = provider === 'openai' ? env.OPENAI_API_KEY : env.ANTHROPIC_API_KEY;
-  if (!rate || rate.provider !== provider || !configured(apiKey) || !configured(env.AI_SIGNING_KEY)
+  const model = env.AI_MODEL ?? (provider === 'openai' ? 'gpt-6-luna'
+    : provider === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'openai/gpt-oss-20b:free');
+  const rate = provider === 'openai-compatible'
+    ? { provider, inputRate: nonNegativeRate(env.AI_INPUT_USD_PER_MTOK), outputRate: nonNegativeRate(env.AI_OUTPUT_USD_PER_MTOK) }
+    : models[model as keyof typeof models];
+  const apiKey = provider === 'openai' ? env.OPENAI_API_KEY
+    : provider === 'anthropic' ? env.ANTHROPIC_API_KEY : env.OPENAI_COMPATIBLE_API_KEY;
+  const baseUrl = provider === 'openai-compatible' ? secureBaseUrl(env.AI_BASE_URL) : null;
+  if (!rate || rate.provider !== provider || rate.inputRate === null || rate.outputRate === null
+    || !configured(apiKey) || (provider === 'openai-compatible' && !baseUrl) || !configured(env.AI_SIGNING_KEY)
     || !configured(env.UPSTASH_REDIS_REST_URL) || !configured(env.UPSTASH_REDIS_REST_TOKEN)
     || !env.UPSTASH_REDIS_REST_URL.startsWith('https://')) return null;
   return {
     secret: env.AI_SIGNING_KEY,
     store: { url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN, fetcher },
-    provider, apiKey, model, inputRate: rate.inputRate, outputRate: rate.outputRate,
+    provider, apiKey, baseUrl, model, inputRate: rate.inputRate, outputRate: rate.outputRate,
     revenueCatKey: configured(env.REVENUECAT_PUBLIC_API_KEY) ? env.REVENUECAT_PUBLIC_API_KEY : null,
   };
 }
@@ -137,7 +164,12 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
   const parsed = requestSchema.safeParse(submitted);
   if (!parsed.success) return json({ code: 'invalid_request' }, 400);
   const { task, input, stream } = parsed.data;
-  const reserved = reserveMicroUsd(`${instructions[task]} ${input} ${JSON.stringify(profileJsonSchema)}`, settings.inputRate, settings.outputRate);
+  if (settings.provider === 'openai-compatible'
+    && (parsed.data.openModelBaseUrl?.replace(/\/$/, '') !== settings.baseUrl || parsed.data.openModel !== settings.model)) {
+    return json({ code: 'invalid_request' }, 400);
+  }
+  const basePrompt = `${instructions[task]} ${input} ${JSON.stringify(profileJsonSchema)}`;
+  const reserved = reserveMicroUsd(basePrompt, settings.inputRate, settings.outputRate) * (task === 'profile' ? 2 : 1);
   const now = new Date();
   try {
     const premium = await premiumFor(userId, settings, fetcher);
@@ -146,12 +178,38 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
   } catch {
     return json({ code: 'unavailable' }, 503);
   }
-  const providerCall = { provider: settings.provider, apiKey: settings.apiKey, model: settings.model, task, input, fetcher };
+  const providerCall = {
+    provider: settings.provider, apiKey: settings.apiKey, baseUrl: settings.baseUrl ?? undefined,
+    model: settings.model, task, input, fetcher,
+  };
+  async function profileResult() {
+    let usage = { inputTokens: 0, outputTokens: 0 };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await callProvider({
+        ...providerCall,
+        input: attempt === 0 ? input : `${input}\n\nYour previous attempt was invalid. Return only a JSON object matching the required profile fields and types. Do not add any other fields.`,
+      });
+      usage = {
+        inputTokens: usage.inputTokens + result.usage.inputTokens,
+        outputTokens: usage.outputTokens + result.usage.outputTokens,
+      };
+      try {
+        return { value: profileSchema.parse(JSON.parse(result.text)), usage };
+      } catch {
+      }
+    }
+    throw new Error('Provider returned invalid profile JSON');
+  }
   if (!stream) {
     try {
+      if (task === 'profile') {
+        const result = await profileResult();
+        await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+        return json({ result: result.value });
+      }
       const result = await callProvider(providerCall);
       await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
-      const value = task === 'profile' ? profileSchema.parse(JSON.parse(result.text)) : result.text;
+      const value = result.text;
       return json({ result: value });
     } catch {
       return json({ code: 'provider_error' }, 502);
@@ -161,11 +219,20 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (event: string, value: unknown) => controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(value)}\n\n`));
+      if (task === 'profile') {
+        void profileResult()
+          .then(async (result) => {
+            await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+            send('done', { result: result.value });
+          })
+          .catch(() => send('error', { code: 'provider_error' }))
+          .finally(() => controller.close());
+        return;
+      }
       void callProvider({ ...providerCall, onDelta: (delta) => send('delta', { text: delta }) })
         .then(async (result) => {
           await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
-          const value = task === 'profile' ? profileSchema.parse(JSON.parse(result.text)) : result.text;
-          send('done', { result: value });
+          send('done', { result: result.text });
         })
         .catch(() => send('error', { code: 'provider_error' }))
         .finally(() => controller.close());

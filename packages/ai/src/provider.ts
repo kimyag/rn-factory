@@ -1,12 +1,13 @@
 import { instructions, profileJsonSchema, type AiTask } from './schema.ts';
 
-export type ProviderName = 'openai' | 'anthropic';
+export type ProviderName = 'openai' | 'anthropic' | 'openai-compatible';
 export type Usage = { inputTokens: number; outputTokens: number };
 export type ProviderResult = { text: string; usage: Usage };
 export type ProviderCall = {
   provider: ProviderName;
   apiKey: string;
   model: string;
+  baseUrl?: string;
   task: AiTask;
   input: string;
   onDelta?: (delta: string) => void;
@@ -58,12 +59,18 @@ async function* events(body: ReadableStream<Uint8Array>): AsyncGenerator<Record<
   }
 }
 
-export async function callProvider({ provider, apiKey, model, task, input, onDelta, fetcher = fetch }: ProviderCall): Promise<ProviderResult> {
+export async function callProvider({ provider, apiKey, model, baseUrl: configuredBaseUrl, task, input, onDelta, fetcher = fetch }: ProviderCall): Promise<ProviderResult> {
   const streaming = onDelta !== undefined;
   const openai = provider === 'openai';
-  const response = await fetcher(openai ? 'https://api.openai.com/v1/responses' : 'https://api.anthropic.com/v1/messages', {
+  const compatible = provider === 'openai-compatible';
+  const baseUrl = compatible ? configuredBaseUrl?.replace(/\/$/, '') : undefined;
+  if (compatible && !baseUrl) throw new Error('OpenAI-compatible base URL unavailable');
+  const response = await fetcher(openai
+    ? 'https://api.openai.com/v1/responses'
+    : compatible ? `${baseUrl}/chat/completions` : 'https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: openai
+    redirect: compatible ? 'error' : 'follow',
+    headers: openai || compatible
       ? { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
       : { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify(openai
@@ -72,6 +79,20 @@ export async function callProvider({ provider, apiKey, model, task, input, onDel
         ...(task === 'profile' ? { text: { format: { type: 'json_schema', name: 'teammate_profile', schema: profileJsonSchema, strict: true } } } : {}),
         stream: streaming,
       }
+      : compatible
+        ? {
+          model,
+          messages: [{
+            role: 'system',
+            content: task === 'profile'
+              ? `${instructions[task]} Return only a JSON object matching this schema: ${JSON.stringify(profileJsonSchema)}`
+              : instructions[task],
+          }, { role: 'user', content: input }],
+          max_tokens: 1_500,
+          ...(task === 'profile' ? { response_format: { type: 'json_object' } } : {}),
+          stream: streaming,
+          ...(streaming ? { stream_options: { include_usage: true } } : {}),
+        }
       : {
         model, system: instructions[task], messages: [{ role: 'user', content: input }], max_tokens: 1_500,
         ...(task === 'profile' ? { output_config: { format: { type: 'json_schema', schema: profileJsonSchema } } } : {}),
@@ -81,11 +102,20 @@ export async function callProvider({ provider, apiKey, model, task, input, onDel
   if (!response.ok) throw new Error(`Provider request failed (${response.status})`);
   if (!streaming) {
     const data = record(await response.json());
-    const output = Array.isArray(data.output) ? data.output.map((item) => contentText(record(item).content)).join('') : contentText(data.content);
+    const compatibleChoice = record(Array.isArray(data.choices) ? data.choices[0] : null);
+    if (compatible && compatibleChoice.finish_reason !== 'stop') throw new Error('Provider response incomplete');
+    const output = openai
+      ? Array.isArray(data.output) ? data.output.map((item) => contentText(record(item).content)).join('') : ''
+      : compatible
+        ? String(record(compatibleChoice.message).content ?? '')
+        : contentText(data.content);
     const usage = record(data.usage);
     return {
       text: output,
-      usage: { inputTokens: number(usage.input_tokens), outputTokens: number(usage.output_tokens) },
+      usage: {
+        inputTokens: number(compatible ? usage.prompt_tokens : usage.input_tokens),
+        outputTokens: number(compatible ? usage.completion_tokens : usage.output_tokens),
+      },
     };
   }
   if (!response.body) throw new Error('Provider stream unavailable');
@@ -106,6 +136,24 @@ export async function callProvider({ provider, apiKey, model, task, input, onDel
         completed = true;
       }
       if (event.type === 'response.failed' || event.type === 'response.incomplete') throw new Error('Provider response incomplete');
+    } else if (compatible) {
+      const usageData = record(event.usage);
+      if (Object.keys(usageData).length > 0) {
+        usage = {
+          inputTokens: number(usageData.prompt_tokens),
+          outputTokens: number(usageData.completion_tokens),
+        };
+      }
+      const choice = record(Array.isArray(event.choices) ? event.choices[0] : null);
+      const delta = record(choice.delta);
+      if (typeof delta.content === 'string') {
+        text += delta.content;
+        onDelta?.(delta.content);
+      }
+      if (choice.finish_reason === 'stop') completed = true;
+      if (choice.finish_reason !== undefined && choice.finish_reason !== null && choice.finish_reason !== 'stop') {
+        throw new Error('Provider response incomplete');
+      }
     } else {
       if (event.type === 'message_start') {
         usage.inputTokens = number(record(record(event.message).usage).input_tokens);

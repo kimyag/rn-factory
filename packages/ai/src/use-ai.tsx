@@ -27,7 +27,12 @@ export function AiProvider({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const [client] = useState(() =>
     settings.modules.ai && !isPlaceholder(settings.ai.serverUrl)
-      ? createAiClient({ serverUrl: settings.ai.serverUrl, identify: payments.identify })
+      ? createAiClient({
+        serverUrl: settings.ai.serverUrl,
+        openModelBaseUrl: settings.ai.openModelBaseUrl,
+        openModel: settings.ai.openModel,
+        identify: payments.identify,
+      })
       : null,
   );
   const resolver = useRef<((accepted: boolean) => void) | null>(null);

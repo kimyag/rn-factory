@@ -23,7 +23,13 @@ export class AiError extends Error {
 }
 
 type Session = z.output<typeof sessionSchema>;
-type ClientOptions = { serverUrl: string; identify?: (userId: string) => Promise<void>; fetcher?: typeof fetch };
+type ClientOptions = {
+  serverUrl: string;
+  openModelBaseUrl: string;
+  openModel: string;
+  identify?: (userId: string) => Promise<void>;
+  fetcher?: typeof fetch;
+};
 
 function dataObject(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -71,7 +77,7 @@ async function readStream(response: Response, onDelta: (delta: string) => void):
   return result;
 }
 
-export function createAiClient({ serverUrl, identify, fetcher = expoFetch as typeof fetch }: ClientOptions) {
+export function createAiClient({ serverUrl, openModelBaseUrl, openModel, identify, fetcher = expoFetch as typeof fetch }: ClientOptions) {
   const base = serverUrl.replace(/\/$/, '');
   async function session(): Promise<Session> {
     if (!base.startsWith('https://') || base.endsWith('_PLACEHOLDER')) throw new AiError('unavailable');
@@ -93,7 +99,9 @@ export function createAiClient({ serverUrl, identify, fetcher = expoFetch as typ
     const response = await fetcher(`${base}/ai/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${current.token}` },
-      body: JSON.stringify({ task, input: text.data, stream: onDelta !== undefined }),
+      body: JSON.stringify({
+        task, input: text.data, stream: onDelta !== undefined, openModelBaseUrl, openModel,
+      }),
     });
     if (response.status === 401) {
       savedSession.set(null);

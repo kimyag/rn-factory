@@ -1,6 +1,6 @@
 export const en = {
   'disclosure.title': 'Send text to AI?',
-  'disclosure.body': 'The text you enter will be sent to an AI provider to make this result. We do not store it on our server, but the provider may handle it under its own terms. Please remove anything you do not have permission to share.',
+  'disclosure.body': 'The text you enter will be sent to the configured AI provider. We do not store it on our server. When OpenRouter is configured, it may route your text to another model provider. OpenRouter says its prompt and response logging is off by default and can be enabled in account settings; it still stores request metadata. The selected provider has separate logging, retention, and training policies, which may differ. Please remove anything you do not have permission to share.',
   'disclosure.send': 'Send to AI',
   'disclosure.cancel': 'Cancel',
   'error.unavailable': 'AI is unavailable right now. Please try again later.',
