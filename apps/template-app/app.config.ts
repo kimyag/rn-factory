@@ -1,4 +1,4 @@
-import { blockedAndroidPermissions, easUpdateConfig, isPlaceholder, neutrals, sentryPlugin, telemetryPrivacyManifest, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
+import { blockedAndroidPermissions, blockedReminderPermissions, easUpdateConfig, isPlaceholder, neutrals, sentryPlugin, telemetryPrivacyManifest, validateSettings, type AppSettings, type CustomFont } from '@factory/core';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import appSettings from './app.settings.ts';
@@ -40,6 +40,7 @@ export default (context: ConfigContext): ExpoConfig => {
       blockedPermissions: [
         ...(config.android?.blockedPermissions ?? []),
         ...blockedAndroidPermissions(settings),
+        ...blockedReminderPermissions(settings),
       ],
       adaptiveIcon: {
         backgroundColor: settings.branding.assets.androidAdaptiveIcon.background,
@@ -64,6 +65,7 @@ export default (context: ConfigContext): ExpoConfig => {
       ],
       ...fontPlugin(settings.fonts),
       ...sentryPlugin(settings),
+      ...(settings.modules.reminders ? ['expo-notifications'] : []),
     ],
     ...easProject(settings.eas, config.extra),
     ...easUpdateConfig(settings.eas),

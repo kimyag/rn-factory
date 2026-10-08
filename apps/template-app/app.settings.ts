@@ -45,6 +45,7 @@ const settings: AppSettings = {
     crashReports: true,
     analytics: true,
     ai: false,
+    reminders: true,
   },
   ai: {
     serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER',

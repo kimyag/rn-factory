@@ -42,6 +42,12 @@ const customFont = z.strictObject({
 
 const fontRole = z.union([z.literal('system'), customFont]);
 
+export const reminderSettingsSchema = z.strictObject({
+  enabled: z.boolean(),
+  time: z.string(),
+  id: z.string().nullable(),
+});
+
 const branding = z.strictObject({
   assets: z.strictObject({
     icon: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
@@ -94,6 +100,7 @@ export const appSettingsSchema = z.strictObject({
     crashReports: z.boolean(),
     analytics: z.boolean(),
     ai: z.boolean(),
+    reminders: z.boolean(),
   }),
   telemetry: z.strictObject({
     sentryOrganization: z.string().trim().min(1),
