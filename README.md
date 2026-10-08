@@ -15,19 +15,20 @@ flowchart TD
   App --> Feature[apps/app/src/feature<br/>app-specific screens]
   Settings --> Modules{Enabled modules}
   Modules --> Payments[packages/payments]
-  Modules --> Reminders[packages/reminders<br/>one daily time and on/off]
+  Modules --> Reminders[packages/reminders<br/>typed notification API]
   Modules --> AI[packages/ai<br/>client and server routes]
-  AI --> Allowlist[server provider allowlist and secrets]
+  AI --> Allowlist[server endpoint and model allowlist<br/>provider secrets]
   Screens --> Reminders
 ```
 
 `apps/template-app` is the source for new apps. Put app-specific behavior in
 `apps/<app>/src/feature/`; keep `src/app/` route files small. The settings file
 controls branding, fonts, privacy links, telemetry, and optional modules.
-`@factory/reminders` supplies one shared daily reminder with an editable time
-and on/off switch. Apps that need more reminders can build that experience in
-their own feature folder using the shared package API. AI disclosure and the
-OpenRouter free-model data policy are described in [docs/ai.md](docs/ai.md).
+The shared Settings screen exposes one daily reminder with an editable time
+and on/off switch through `@factory/reminders`. Apps that need more reminders
+can build that experience in their own feature folder using the shared package
+API. See [docs/ai.md](docs/ai.md) for the AI disclosure and OpenRouter free-model
+data policy.
 Provider credentials stay on the server, which enforces its provider allowlist.
 
 ## Create and run an app
