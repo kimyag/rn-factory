@@ -43,6 +43,13 @@ Good:
 ```
 Why: a new `key` mounts a fresh component with fresh state, no extra render.
 
+## External state
+
+Read OS state from its source, never copy it into React state; use `useSyncExternalStore` or equivalent.
+Save the user's choice before slow async calls, then derive UI from that choice and the current OS snapshot.
+Re-read OS state when the app returns to the foreground using `AppState`.
+Test pending async calls and their state ordering, as the reminders regression test for #82 does.
+
 ## 3. User actions go in handlers, not effects
 Bad:
 ```tsx

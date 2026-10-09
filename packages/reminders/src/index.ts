@@ -70,6 +70,11 @@ export async function cancelReminder(id: string): Promise<void> {
   await notifications.cancelScheduledNotificationAsync(id);
 }
 
+export async function cancelRemindersByKey(key: string): Promise<void> {
+  const reminders = await listReminders();
+  await Promise.all(reminders.filter((reminder) => reminder.key === key).map(({ id }) => cancelReminder(id)));
+}
+
 export async function listReminders(): Promise<ScheduledReminder[]> {
   const notifications = await import('expo-notifications');
   const scheduled = await notifications.getAllScheduledNotificationsAsync();
