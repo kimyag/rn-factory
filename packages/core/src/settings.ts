@@ -53,6 +53,7 @@ const branding = z.strictObject({
     androidAdaptiveIcon: z.strictObject({
       foreground: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
       monochrome: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder'),
+      backgroundImage: z.string().regex(/^\.\/assets\/.+\.png$/, 'must be a PNG path inside the app assets folder').optional(),
       background: hexColor,
     }),
     splash: z.strictObject({
