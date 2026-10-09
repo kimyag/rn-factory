@@ -31,7 +31,7 @@ export type NewAppValues = {
 // What an app owns. Everything else in the template (eas.json, icons, LICENSE, .vscode) is
 // generated or not copied; src/fonts.ts and app.settings.ts are written, not copied.
 export const copiedFiles = ['.gitignore', 'app.config.ts', 'app.json', 'metro.config.js', 'package.json', 'tsconfig.json', 'src/expo-types.d.ts'];
-export const copiedFolders = ['src/app', 'src/feature', 'src/text', 'assets/onboarding'];
+export const copiedFolders = ['src/app', 'src/feature', 'src/text', 'assets/onboarding', 'modules'];
 
 const fontsFolder = 'assets/fonts';
 const placeholderValues = { owner: 'EAS_OWNER_PLACEHOLDER', projectId: 'EAS_PROJECT_ID_PLACEHOLDER' };

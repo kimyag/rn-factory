@@ -69,6 +69,7 @@ for setup, options, and flow details.
 | `apps/<app>/src/app/` | Expo Router layout and route files |
 | `apps/<app>/src/feature/` | App-specific screens and behavior |
 | `apps/<app>/src/text/` | App translations |
+| `apps/<app>/modules/` | App-owned Expo Modules API modules |
 | `packages/core` | Settings schema, storage, and shared logic |
 | `packages/app` | `FactoryProvider`, app settings, and translation hooks |
 | `packages/screens` | Shared onboarding and settings screens |
@@ -79,5 +80,5 @@ for setup, options, and flow details.
 | `docs/` | Decisions and capability guides |
 
 See [docs/reminders.md](docs/reminders.md), [docs/ai.md](docs/ai.md),
-[docs/payments.md](docs/payments.md), and [docs/maestro.md](docs/maestro.md)
-for capability details.
+[docs/payments.md](docs/payments.md), [docs/native-modules.md](docs/native-modules.md),
+and [docs/maestro.md](docs/maestro.md) for capability details.
