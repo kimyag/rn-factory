@@ -79,7 +79,8 @@ compatible updates from other channels, so it is not a channel-isolation test.
 - TypeScript strict. No `any`, no `@ts-ignore`.
 - Before UI work in `apps/*`, `packages/ui`, or `packages/screens`, read
   `.claude/skills/react-native/SKILL.md` and follow it.
-- Long lists use `FlatList`, never `ScrollView` with `map`.
+- Long or growing lists use `FlashList`; small, bounded lists and short pagers use `FlatList`.
+  Never use `ScrollView` with `map` for a list.
 - Persist app state only with `storedValue` from `@factory/core/storage`, never with `localStorage` or a storage library directly.
 - No hardcoded colors, spacing, or user-facing text. Use theme tokens and
   translation keys.

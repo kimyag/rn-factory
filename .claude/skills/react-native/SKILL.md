@@ -57,8 +57,21 @@ async function onSave() {
 ```
 Why: effects are for syncing with systems outside React, not for reacting to clicks.
 
-## 4. List rows: a row component, stable keys, static styles
-This overrides the Expo plugin's inline-style default, for list items only.
+## 4. Lists: choose by size, recycle safely
+
+Use `FlatList` for small, bounded lists and short horizontal pagers such as
+onboarding. Use FlashList v2 for long or growing lists, especially mixed or
+image-heavy feeds and on older Android devices. If a list is large enough that
+mounting and filling rows causes visible blank areas or jank, prefer FlashList.
+Measure in a release build on a low-end device; development mode distorts list
+performance. FlashList v2 is JavaScript-only, requires the New Architecture
+(always enabled in Expo SDK 55+), and does not need `estimatedItemSize`.
+
+Both lists need a row component, stable item IDs, and static row styles. FlashList
+recycles row views, so reset item-specific state when the item changes, remove
+explicit keys inside the recycled row, and pass `getItemType` for mixed rows.
+For images in recycled rows, also follow the `recyclingKey` rule below.
+This overrides the Expo plugin's inline-style default for list items only.
 
 Bad:
 ```tsx
@@ -68,7 +81,7 @@ Bad:
   renderItem={({ item }) => <View style={{ flexDirection: 'row' }}>…</View>}
 />
 ```
-Good:
+Good for a small list or pager:
 ```tsx
 <FlatList data={items} keyExtractor={(item) => item.id} renderItem={({ item }) => <Row item={item} />} />
 
@@ -77,7 +90,18 @@ function Row({ item }: RowProps) {
 }
 const styles = StyleSheet.create({ row: { flexDirection: 'row' } });
 ```
-Why: index keys break row state on insert and delete; inline objects are rebuilt for every row on every render.
+
+Good for a long or growing feed:
+```tsx
+<FlashList
+  data={items}
+  keyExtractor={(item) => item.id}
+  getItemType={(item) => item.kind}
+  renderItem={({ item }) => <Row item={item} />}
+/>
+```
+Why: stable IDs preserve row identity across inserts, recycling reduces repeated
+mounting, and static row styles avoid rebuilding objects while scrolling.
 
 ## 5. Images: expo-image with a size
 Bad:
@@ -91,7 +115,7 @@ const styles = StyleSheet.create({ cover: { width: '100%', aspectRatio: 16 / 9 }
 ```
 Why: remote images have no intrinsic size; without one they render at 0×0 or shift the layout when they load.
 
-## 6. Images in recycling lists (if FlashList is added): recyclingKey
+## 6. Images in recycling lists: recyclingKey
 Bad:
 ```tsx
 <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />

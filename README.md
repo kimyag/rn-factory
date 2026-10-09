@@ -33,6 +33,11 @@ The AI module supports OpenAI, Anthropic, and an OpenAI-compatible provider.
 Compatible base URLs and model names must match the server allowlist. Provider
 credentials stay on the server.
 
+App features use `FlatList` for short bounded lists and pagers, and `FlashList`
+for long or growing feeds. FlashList v2 is included in the template for SDK 57;
+see the [React Native skill](.claude/skills/react-native/SKILL.md#4-lists-choose-by-size-recycle-safely)
+for recycling and profiling rules.
+
 ## Create and run an app
 
 Use Node 22.18+ and pnpm 12.8.1.
