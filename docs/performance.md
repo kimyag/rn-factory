@@ -32,9 +32,14 @@ pnpm perf:maestro settings
 pnpm perf:maestro onboarding-pages --app my-app --lang en --theme dark
 ```
 
-Run one flow per command. The runner uses the same direct-launch preview startup
-as `pnpm maestro --preview`, starts a bounded 180-second Perfetto trace, runs
-Maestro once, then stops and pulls the trace. It does not retry a failed flow.
+Run one flow per command. Before tracing, the runner clears the app data with
+`adb shell pm clear`; each prepared flow then begins with the preview startup
+subflow, which stops the app, clears its state again, and waits for the
+fresh-install onboarding screen. Clearing app data also removes downloaded Expo
+Updates, so the run uses the embedded bundle; `report.json` records
+`initial_state: "cleared"` and `bundle: "embedded"`. The runner starts a
+bounded 180-second Perfetto trace, runs Maestro once, then stops and pulls the
+trace. It does not retry a failed flow.
 Traces and reports go to the ignored
 `maestro-screenshots/performance/<app>/<flow>/<timestamp>/` directory. Keep
 traces local: they can contain process, package, and system scheduling data.
@@ -50,6 +55,9 @@ scheduled CPU time for the app process and its subprocesses over the trace.
 `cpu_percent_one_core` divides that time by the total trace duration, where
 100% means one core was busy throughout. Missing frame data is reported as
 `null`; this can happen when the device does not expose FrameTimeline data.
+If `frame_count` is zero while the trace contains system frames, the app did not
+produce a matching app surface during capture; check that it launched and stayed
+in the foreground before changing the app-layer filter.
 On Android versions before 12/API 31, the runner reports FrameTimeline as
 unsupported; it does not currently collect an older frame-metric fallback.
 

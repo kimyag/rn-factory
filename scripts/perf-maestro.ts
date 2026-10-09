@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { connectedDevices, flowsIn, maestroArgs, parseArgs, selectFlows } from './maestro-lib.ts';
 import { preparePerformanceFlow } from './maestro-flow.ts';
-import { traceCommands, traceConfig, validateAppId } from './perf-maestro-lib.ts';
+import { clearAppDataCommand, traceCommands, traceConfig, validateAppId } from './perf-maestro-lib.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -103,6 +103,7 @@ async function main() {
   let runError: unknown;
 
   try {
+    checked('adb', clearAppDataCommand(appId));
     checked('adb', commands.start, traceConfig(appId));
     traceStarted = true;
     checked('adb', ['shell', 'svc', 'power', 'stayon', 'usb']);
@@ -146,8 +147,19 @@ async function main() {
     fail(`Perfetto analysis failed: ${report.error?.message ?? report.stderr ?? report.stdout}`);
   }
   const metrics: unknown = JSON.parse(report.stdout);
-  writeFileSync(join(out, 'report.json'), `${JSON.stringify(metrics, null, 2)}\n`);
-  process.stdout.write(`\n${JSON.stringify(metrics, null, 2)}\nTrace: ${trace}\nReport: ${join(out, 'report.json')}\n`);
+  if (metrics === null || typeof metrics !== 'object' || Array.isArray(metrics)) {
+    fail('Perfetto analysis returned a non-object JSON report.');
+  }
+  const result = {
+    ...(metrics as Record<string, unknown>),
+    app: options.app,
+    flow: flow.name,
+    initial_state: 'cleared',
+    bundle: 'embedded',
+  };
+  const reportPath = join(out, 'report.json');
+  writeFileSync(reportPath, `${JSON.stringify(result, null, 2)}\n`);
+  process.stdout.write(`\n${JSON.stringify(result, null, 2)}\nTrace: ${trace}\nReport: ${reportPath}\n`);
   if (!flowPassed) {
     fail(`Maestro flow ${flow.name} failed. The flow was run once; no retry was attempted.`);
   }

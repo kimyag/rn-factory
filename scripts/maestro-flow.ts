@@ -69,5 +69,17 @@ export function preparePerformanceFlow(
   appFlowsDir: string,
   outputDir: string,
 ): Flow {
-  return preparePreviewFlow(flow, sharedFlowsDir, appFlowsDir, outputDir, false);
+  const prepared = preparePreviewFlow(flow, sharedFlowsDir, appFlowsDir, outputDir, false);
+  const source = readFileSync(prepared.file, 'utf8');
+  const separator = source.indexOf('\n---\n');
+  if (separator < 0) {
+    throw new Error(`${flow.name} is missing its Maestro YAML document separator.`);
+  }
+
+  const header = source.slice(0, separator);
+  const steps = source
+    .slice(separator + '\n---\n'.length)
+    .replace(/^- runFlow: subflows\/preview-start\.yaml\s*\n/gm, '');
+  writeFileSync(prepared.file, `${header}\n---\n- runFlow: subflows/preview-start.yaml\n${steps}`);
+  return prepared;
 }

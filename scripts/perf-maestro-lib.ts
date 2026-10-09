@@ -6,6 +6,11 @@ export function validateAppId(appId: string): void {
   }
 }
 
+export function clearAppDataCommand(appId: string): string[] {
+  validateAppId(appId);
+  return ['shell', 'pm', 'clear', appId];
+}
+
 export function traceConfig(appId: string, durationMs = 180_000): string {
   validateAppId(appId);
   return `duration_ms: ${durationMs}
