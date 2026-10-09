@@ -38,6 +38,14 @@ development-client behavior.
 
 Screenshots go to `maestro-screenshots/<app>/<time>/`, which git ignores. Attach the
 ones that show your change to the PR.
+Each flow's screenshots and command logs are stored in its own subfolder. The
+runner stops after two failed flows; it does not retry them.
+
+Startup waits for the app bundle before dismissing the development-client intro.
+It turns off the native Tools button before closing the developer menu, so that
+button cannot intercept taps on the app's Skip or Settings controls.
+Notification permission is left unset so an explicit reminder opt-in can exercise
+the system prompt.
 
 ## Flows
 

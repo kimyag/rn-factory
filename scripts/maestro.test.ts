@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -128,4 +131,39 @@ test('only devices in the device state count', () => {
   const output = 'List of devices attached\nABC123\tdevice usb:1\nDEF456\tunauthorized usb:2\nemulator-5554\toffline\n\n';
   assert.deepEqual(connectedDevices(output), ['ABC123']);
   assert.deepEqual(connectedDevices('List of devices attached\n\n'), []);
+});
+
+test('runner stops at two cumulative failures and restores the phone wake setting', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'maestro-runner-test-'));
+  const capture = join(folder, 'calls');
+  const server = createServer((_request, response) => response.end('packager-status:running'));
+  try {
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    assert.ok(address && typeof address !== 'string');
+    await writeFile(join(folder, 'adb'), `#!${process.execPath}\nconst fs = require('node:fs');\nconst args = process.argv.slice(2);\nif (args[0] === 'devices') console.log('List of devices attached\\nFAKE\\tdevice');\nelse fs.appendFileSync(process.env.FACTORY_MAESTRO_CAPTURE, JSON.stringify(['adb', ...args]) + '\\n');\n`, { mode: 0o755 });
+    await writeFile(join(folder, 'maestro'), `#!${process.execPath}\nconst fs = require('node:fs');\nconst args = process.argv.slice(2);\nif (args[0] === '--version') process.exit(0);\nfs.appendFileSync(process.env.FACTORY_MAESTRO_CAPTURE, JSON.stringify(['maestro', ...args]) + '\\n');\nprocess.exit(args.some(arg => arg.endsWith('/onboarding-skip.yaml')) ? 0 : 1);\n`, { mode: 0o755 });
+    const child = spawn(process.execPath, [
+      join(import.meta.dirname, 'maestro.ts'), 'onboarding-pages', 'onboarding-skip', 'settings', 'payments',
+      '--server', `http://127.0.0.1:${address.port}`,
+    ], { env: { ...process.env, PATH: `${folder}:${process.env.PATH}`, FACTORY_MAESTRO_CAPTURE: capture } });
+    let output = '';
+    child.stdout.on('data', (data: Buffer) => { output += data.toString(); });
+    child.stderr.on('data', (data: Buffer) => { output += data.toString(); });
+    const exit = await new Promise<number | null>((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', resolve);
+    });
+    assert.equal(exit, 1, output);
+    assert.match(output, /Stopped after two failed flows/);
+    const calls = (await readFile(capture, 'utf8')).trim().split('\n').map((line) => JSON.parse(line) as string[]);
+    const runs = calls.filter(([binary]) => binary === 'maestro');
+    assert.equal(runs.length, 3);
+    assert.ok(runs.every((args) => args.includes('--test-output-dir')));
+    assert.ok(runs.every((args) => !args.some((arg) => arg.endsWith('/payments.yaml'))));
+    assert.deepEqual(calls.at(-1), ['adb', 'shell', 'svc', 'power', 'stayon', 'false']);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(folder, { recursive: true, force: true });
+  }
 });
