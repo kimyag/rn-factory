@@ -25,6 +25,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-native-modules.mjs
       - run: pnpm typecheck
+      - run: pnpm -r --if-present test
       - run: pnpm lint
       - run: pnpm test:ai
       - run: node --test packages/screens/src/error-recovery.test.ts

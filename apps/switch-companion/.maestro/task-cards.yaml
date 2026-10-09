@@ -1,0 +1,66 @@
+appId: ${APP_ID}
+---
+- runFlow: subflows/start.yaml
+- runFlow: subflows/finish-onboarding.yaml
+- assertVisible:
+    id: tasks-empty
+- tapOn:
+    id: task-add
+- tapOn:
+    id: task-title-input
+- inputText: First task
+- hideKeyboard
+- tapOn:
+    id: task-save
+- assertVisible:
+    id: task-current-title
+    text: First task
+- tapOn:
+    id: task-add
+- tapOn:
+    id: task-title-input
+- inputText: Second task
+- hideKeyboard
+- tapOn:
+    id: task-save
+- assertVisible:
+    id: task-current-title
+    text: Second task
+- swipe:
+    start: 20%, 40%
+    end: 80%, 40%
+    duration: 500
+- assertVisible:
+    id: task-current-title
+    text: First task
+- takeScreenshot: task-cards-switched
+- tapOn:
+    id: task-archive
+- assertVisible:
+    id: task-current-title
+    text: Second task
+- assertVisible:
+    id: task-undo
+- takeScreenshot: task-cards-archived
+- tapOn:
+    id: task-undo
+- assertVisible:
+    id: task-current-title
+    text: First task
+- tapOn:
+    id: task-next
+- assertVisible:
+    id: task-current-title
+    text: Second task
+- tapOn:
+    id: task-archive
+- tapOn:
+    id: task-archive
+- assertVisible:
+    id: tasks-empty
+- tapOn:
+    id: task-undo
+- assertVisible:
+    id: task-current-title
+    text: First task
+- takeScreenshot: task-cards-undo
