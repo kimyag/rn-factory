@@ -1,0 +1,7 @@
+appId: ${APP_ID}
+---
+- assertNotVisible:
+    id: premium-plans
+- assertNotVisible:
+    id: restore
+- takeScreenshot: settings-${LANG_CODE}-${THEME}-lower

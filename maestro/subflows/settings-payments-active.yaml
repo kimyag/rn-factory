@@ -1,0 +1,10 @@
+appId: ${APP_ID}
+---
+- scrollUntilVisible:
+    element:
+      id: restore
+- assertVisible:
+    id: premium-plans
+- assertVisible:
+    id: restore
+- takeScreenshot: settings-${LANG_CODE}-${THEME}-lower
