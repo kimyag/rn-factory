@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Pressable, Switch, TextInput, View } from 'react-native';
 
 import { text } from './text/index.ts';
-import { defaultReminderSettings, reminderSwitchIsOn } from './reminder-switch-state.ts';
+import { defaultReminderSettings, disableReminder, reminderSwitchIsOn } from './reminder-switch-state.ts';
 
 const reminderSettings = storedValue({
   key: 'reminders.settings',
@@ -87,6 +87,9 @@ export function RemindersRow() {
         return;
       }
       setPermissionGranted(true);
+      if (current.id !== null) {
+        await cancelReminder(current.id);
+      }
       const [hour, minute] = draftTime.split(':').map(Number);
       const id = await scheduleReminder({
         title: t('reminders.title'),
@@ -111,12 +114,9 @@ export function RemindersRow() {
     busyRef.current = true;
     setBusy(true);
     setError(null);
+    setReminderScheduled(false);
     try {
-      if (current.id) {
-        await cancelReminder(current.id);
-      }
-      save({ ...current, enabled: false, id: null });
-      setReminderScheduled(false);
+      await disableReminder(current, cancelReminder, save);
     } catch {
       setError('reminders.failed');
     } finally {
