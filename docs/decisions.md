@@ -108,3 +108,4 @@ One line per decision. Newest at the bottom.
 
 | 2026-10-09 | New apps use color Mark + first-letter placeholder assets rendered with bundled Newsreader and pinned @resvg/resvg-js as a scripts-only root devDependency; regenerate with pnpm app:assets, preserving template artwork | Each app is recognizable immediately; final artwork replaces files at the settings paths. |
 | 2026-10-09 | Switch Companion (#86/#87) uses temporary identity in app.settings.ts, AI and analytics on, reminders and payments off, with no EAS initialization or device runs in these PRs | Prepare the app locally before store setup and authorized device checks. |
+| 2026-10-09 | Switch Companion EAS owner/project ID live only in app.settings.ts after manual initialization; discard CLI-added app.json metadata and unrelated pnpm policy changes | Expo derives the project link and update configuration from settings; generated eas.json remains reproducible. |

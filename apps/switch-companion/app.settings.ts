@@ -68,8 +68,8 @@ const settings: AppSettings = {
     posthogHost: 'POSTHOG_HOST_PLACEHOLDER',
   },
   eas: {
-    owner: 'EAS_OWNER_PLACEHOLDER',
-    projectId: 'EAS_PROJECT_ID_PLACEHOLDER',
+    owner: 'kimyag',
+    projectId: '4cecd558-8e61-43da-9671-cda1465b7fee',
   },
   stores: {
     // Placeholders until #14 (Apple developer account).

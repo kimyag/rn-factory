@@ -10,16 +10,13 @@ After changing the name or colors, run `pnpm app:assets switch-companion` from t
 workspace root. Final icons and splash artwork can replace the PNGs at those same
 paths without changing code. Do not regenerate after replacing them manually.
 
-Initialize EAS manually (no EAS project was created by this task):
+The EAS project was initialized manually and is linked only through
+`app.settings.ts`. Regenerate build profiles with `pnpm eas:config` from the
+workspace root. Build the iOS simulator development client from the app folder:
 
 ```bash
-cd apps/switch-companion
-pnpm dlx eas-cli@24.9.0 project:init
+pnpm dlx eas-cli@24.9.0 build --profile development --platform ios
 ```
-
-Copy the owner/project ID into `app.settings.ts`, then run `pnpm eas:config` from
-the workspace root. Build the iOS simulator development client from the app folder:
-`pnpm dlx eas-cli@24.9.0 build --profile development --platform ios`.
 
 Check from the workspace root:
 
