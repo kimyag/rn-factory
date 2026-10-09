@@ -5,6 +5,8 @@ import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } fro
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AppSettingsProvider } from './app-settings.tsx';
 import { LanguageProvider } from './language-state.tsx';
@@ -39,17 +41,21 @@ export function FactoryProvider({ settings, fontFiles = {}, children }: FactoryP
   }
 
   return (
-    <AppSettingsProvider settings={settings}>
-      <LanguageProvider>
-        <ThemeProvider settings={settings}>
-          <NavigationTheme>
-            <TelemetryProvider><OnboardingProvider>{children}</OnboardingProvider></TelemetryProvider>
-          </NavigationTheme>
-        </ThemeProvider>
-      </LanguageProvider>
-    </AppSettingsProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AppSettingsProvider settings={settings}>
+        <LanguageProvider>
+          <ThemeProvider settings={settings}>
+            <NavigationTheme>
+              <TelemetryProvider><OnboardingProvider>{children}</OnboardingProvider></TelemetryProvider>
+            </NavigationTheme>
+          </ThemeProvider>
+        </LanguageProvider>
+      </AppSettingsProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({ root: { flex: 1 } });
 
 // Native builds embed the fonts with the expo-font config plugin; loading them
 // here as well makes them work in Expo Go and on the web.

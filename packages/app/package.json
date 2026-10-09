@@ -17,6 +17,7 @@
     "expo-splash-screen": "*",
     "expo-status-bar": "*",
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-gesture-handler": "*"
   }
 }

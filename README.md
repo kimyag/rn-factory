@@ -38,6 +38,11 @@ for long or growing feeds. FlashList v2 is included in the template for SDK 57;
 see the [React Native skill](.claude/skills/react-native/SKILL.md#4-lists-choose-by-size-recycle-safely)
 for recycling and profiling rules.
 
+`FactoryProvider` also supplies the gesture root. Each app inherits SDK-compatible
+Gesture Handler, Reanimated, and Worklets; gesture behavior stays in its feature
+folder. See the [React Native skill](.claude/skills/react-native/SKILL.md#9-gestures-and-animation-stay-on-the-ui-thread)
+for UI-thread updates, reduced motion, and accessible alternatives.
+
 ## Create and run an app
 
 Use Node 22.18+ and pnpm 12.8.1.

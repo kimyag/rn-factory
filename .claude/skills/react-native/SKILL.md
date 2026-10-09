@@ -12,7 +12,7 @@ then `const t = useText(text)` from `@factory/app`. Values: `'Hi {name}'`; plura
 `{ one: '{count} day', other: '{count} days' }` with `t(key, { count })`. A new language adds
 `packages/app/src/languages/<code>.ts` (direction and plural rule) and a text file in every package.
 The Expo plugin skills cover lists vs. `ScrollView`, theme token structure,
-Expo Router and typed routes, safe areas, platform files, keyboard, animation,
+Expo Router and typed routes, safe areas, platform files, keyboard,
 React Compiler and memoization, and labels for icon-only controls. Use them for
 those topics. This file does not repeat them.
 
@@ -158,3 +158,64 @@ Good:
 <Text style={styles.body}>{body}</Text>
 ```
 Why: a wrapper that adds no behavior or style is one more name to learn and one more file to change.
+
+## 9. Gestures and animation: stay on the UI thread
+
+SDK 57 installs Gesture Handler 2, Reanimated 4, and Worklets in each app.
+Expo's Babel preset configures worklets automatically; do not add a second plugin.
+`FactoryProvider` supplies the `GestureHandlerRootView` for the whole app.
+Wrap the content of a React Native `Modal` in another root view on Android.
+
+Use `GestureDetector` with Gesture Handler 2's builder API. Keep per-frame
+updates in worklets and shared values, never React state. Use shared value
+`get()` / `set()` with React Compiler. Animate transforms and opacity before
+layout properties. Gesture behavior belongs in the app's feature folder;
+shared motion durations and easing come from the theme.
+
+Bad:
+```tsx
+const [offset, setOffset] = useState(0);
+const pan = Gesture.Pan().runOnJS(true).onUpdate((event) => setOffset(event.translationX));
+```
+Good (inside a feature component):
+```tsx
+const { motion } = useTheme();
+const offset = useSharedValue(0);
+const pan = Gesture.Pan()
+  .onUpdate((event) => offset.set(event.translationX))
+  .onFinalize(() => offset.set(withTiming(0, {
+    duration: motion.fade,
+    reduceMotion: ReduceMotion.System,
+  })));
+const style = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
+
+return (
+  <GestureDetector gesture={pan}>
+    <Animated.View style={style}>{children}</Animated.View>
+  </GestureDetector>
+);
+```
+Imports: `Gesture`, `GestureDetector` from `react-native-gesture-handler`;
+`Animated` (default), `ReduceMotion`, `useSharedValue`, `useAnimatedStyle`,
+`withTiming` from `react-native-reanimated`; `useTheme` from `@factory/ui`.
+The view above is the feature's existing accessible content, not a new shared wrapper.
+
+Cross to JavaScript for a completed action only, using `scheduleOnRN` from
+`react-native-worklets`: `scheduleOnRN(onCommit, item.id)` inside an end callback.
+Do not call storage, navigation, network requests, or React setters directly
+from a worklet. Composed gestures must declare simultaneous/exclusive relations
+so a horizontal action does not steal vertical list scrolling. Supply an
+accessible button/action for any gesture that changes app state.
+
+Finger tracking is direct; settling/decorative motion respects the system's
+reduced-motion preference (`ReduceMotion.System`). Cancelled gestures also
+settle (`onFinalize`), and a feature must not leave a recycled row displaced.
+Existing UI components retain the motion rules in `packages/ui/DESIGN.md`.
+
+Check gestures on an authorized device, including cancellation, vertical
+scrolling, reduced motion, and the accessible alternative. Typecheck/lint and
+an Expo export check configuration, but cannot prove touch or frame behavior.
+No device retries beyond the two-failure rule in `AGENTS.md`.
+
+Sources: [SDK 57 Reanimated](https://docs.expo.dev/versions/v57.0.0/sdk/reanimated/),
+[Gesture Handler 2 setup](https://docs.swmansion.com/react-native-gesture-handler/docs/2.x/fundamentals/installation/).
