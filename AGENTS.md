@@ -13,7 +13,8 @@ The must-rules for all agents. Read it before every task. UI patterns are in `.c
 
 ## Folder map
 - `apps/<app>/` – one app: `app.settings.ts` and its feature folder `src/feature/`.
-  `src/app/` holds the app's `_layout.tsx` and one-line route files; `src/text/` its translations.
+  `src/app/` holds the app's `_layout.tsx` and one-line route files; `src/text/` its translations;
+  `modules/` holds app-owned Expo Modules API modules.
   Onboarding pages: `src/feature/onboarding.tsx` (1–4 pages), images in `assets/onboarding/`.
 - `packages/core` – `@factory/core`: app settings schema and shared logic.
 - `packages/app` – `@factory/app`: `FactoryProvider` (theme, navigation theme,
@@ -75,7 +76,9 @@ compatible updates from other channels, so it is not a channel-isolation test.
   Ask me before you add any new dependency.
 - Relative imports in `packages/*`, `app.config.ts`, and `app.settings.ts`
   use the `.ts` extension. Node loads these files directly.
-- Do not create or edit `ios/` or `android/`. Use app config and config plugins.
+- Do not create or edit generated `apps/<app>/ios/` or `apps/<app>/android/` folders.
+  Native source inside `apps/<app>/modules/<module>/ios/` and `android/` is allowed;
+  CNG and EAS generate the app-level native projects from app config and module sources.
 - TypeScript strict. No `any`, no `@ts-ignore`.
 - Before UI work in `apps/*`, `packages/ui`, or `packages/screens`, read
   `.claude/skills/react-native/SKILL.md` and follow it.

@@ -147,6 +147,8 @@ apps/${slug} is ready. It has no EAS project and no store listing yet. Next, by 
   4. Payments are off. To turn them on, add the RevenueCat keys and set modules.payments
      (see docs/payments.md).
   5. Replace the placeholder screen (src/feature/home-screen.tsx), the onboarding pages and texts.
-  6. Commit the app and pnpm-lock.yaml, then build once: npx eas-cli build --profile development
+  6. For app-owned native code, run: cd apps/${slug} && pnpm create expo-module --local
+     The module is created in modules/ and is linked by Expo Autolinking.
+  7. Commit the app and pnpm-lock.yaml, then build once: npx eas-cli build --profile development
      and run: pnpm --filter ${slug} start
 `);

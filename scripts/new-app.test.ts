@@ -19,9 +19,9 @@ const values: NewAppValues = {
   titleFont: { kind: 'bundled', key: 'newsreader' },
 };
 
-function walk(folder: string): string[] {
+function walk(folder: string, base = folder): string[] {
   return readdirSync(folder, { withFileTypes: true }).flatMap((entry) =>
-    entry.isDirectory() ? walk(join(folder, entry.name)) : [relative(templateDir, join(folder, entry.name))],
+    entry.isDirectory() ? walk(join(folder, entry.name), base) : [relative(base, join(folder, entry.name))],
   );
 }
 
@@ -58,6 +58,7 @@ test('a new app gets its own validated settings, fonts file, and no template ide
     assert.match(readFileSync(join(target, 'src/text/en.ts'), 'utf8'), /'feature\.title': 'Rosa\\'s Garden'/);
     assert.match(readFileSync(join(target, 'app.config.ts'), 'utf8'), /\.\.\.easUpdateConfig\(settings\.eas\)/);
     assert.equal(existsSync(join(target, 'assets/fonts/Newsreader-OFL.txt')), true);
+    assert.equal(existsSync(join(target, 'modules/.gitkeep')), true);
     assert.equal(existsSync(join(target, 'eas.json')), false);
   });
 });
