@@ -12,6 +12,28 @@ export type Options = {
   names: string[];
 };
 
+type PaymentSettings = {
+  modules: { payments: boolean };
+  payments: { revenueCatAndroidApiKey: string; revenueCatTestStoreApiKey: string };
+};
+
+export function paymentsActive(settings: PaymentSettings, development: boolean): boolean {
+  if (!settings.modules.payments) {
+    return false;
+  }
+  const testStoreKey = settings.payments.revenueCatTestStoreApiKey;
+  const key = development && !/^[A-Z0-9_]+_PLACEHOLDER$/.test(testStoreKey)
+    ? testStoreKey
+    : settings.payments.revenueCatAndroidApiKey;
+  return !/^[A-Z0-9_]+_PLACEHOLDER$/.test(key);
+}
+
+export function flowSkipReason(flowName: string, preview: boolean): string | null {
+  return flowName === 'payments' && preview
+    ? 'requires a development build with the RevenueCat Test Store; preview builds use release store keys'
+    : null;
+}
+
 const themes = ['system', 'light', 'dark'];
 
 export function parseArgs(args: string[]): Options {

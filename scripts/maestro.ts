@@ -7,8 +7,8 @@ import { homedir, networkInterfaces, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { connectedDevices, devClientLink, flowsIn, maestroArgs, parseArgs, selectFlows } from './maestro-lib.ts';
-import { preparePreviewFlow } from './maestro-flow.ts';
+import { connectedDevices, devClientLink, flowSkipReason, flowsIn, maestroArgs, parseArgs, paymentsActive, selectFlows } from './maestro-lib.ts';
+import { prepareFlow } from './maestro-flow.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -45,7 +45,12 @@ async function main() {
   }
 
   const imported: unknown = await import(pathToFileURL(join(appDir, 'app.settings.ts')).href);
-  const settings = (imported as { default: { slug: string; bundleIds: { android: string } } }).default;
+  const settings = (imported as { default: {
+    slug: string;
+    bundleIds: { android: string };
+    modules: { payments: boolean };
+    payments: { revenueCatAndroidApiKey: string; revenueCatTestStoreApiKey: string };
+  } }).default;
   const flows = selectFlows(
     [...flowsIn(join(root, 'maestro')), ...flowsIn(join(appDir, '.maestro'))],
     options.names,
@@ -86,19 +91,37 @@ async function main() {
     lang: options.lang,
     theme: options.theme,
   };
+  const paymentsEnabled = paymentsActive(settings, !options.preview);
 
   const binary = maestroBinary();
   const results: [string, boolean][] = [];
-  const previewFlowDir = options.preview ? mkdtempSync(join(tmpdir(), 'rn-factory-maestro-preview-')) : null;
+  const configuredFlowDir = options.preview || flows.some((flow) => flow.name === 'settings')
+    ? mkdtempSync(join(tmpdir(), 'rn-factory-maestro-configured-'))
+    : null;
   try {
-    const runFlows = previewFlowDir === null
-      ? flows
-      : flows.map((flow) => preparePreviewFlow(flow, join(root, 'maestro'), join(appDir, '.maestro'), previewFlowDir));
+    const runFlows = flows.map((flow) => {
+      if (configuredFlowDir === null || (!options.preview && flow.name !== 'settings')) {
+        return flow;
+      }
+      return prepareFlow(
+        flow,
+        join(root, 'maestro'),
+        join(appDir, '.maestro'),
+        configuredFlowDir,
+        options.preview,
+        paymentsEnabled,
+      );
+    });
     // A phone that goes to sleep shows a black screen to Maestro, so keep it awake while
     // it is charging over USB, and put the setting back afterwards.
     spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'usb']);
     try {
       for (const flow of runFlows) {
+        const skipReason = flowSkipReason(flow.name, options.preview);
+        if (skipReason !== null) {
+          console.log(`SKIPPED ${flow.name}: ${skipReason}.`);
+          continue;
+        }
         console.log(`\n== ${flow.name} (${options.lang}, ${options.theme})`);
         spawnSync('adb', ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
         // Maestro saves screenshots in its working directory.
@@ -109,8 +132,8 @@ async function main() {
       spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'false']);
     }
   } finally {
-    if (previewFlowDir !== null) {
-      rmSync(previewFlowDir, { recursive: true, force: true });
+    if (configuredFlowDir !== null) {
+      rmSync(configuredFlowDir, { recursive: true, force: true });
     }
   }
 

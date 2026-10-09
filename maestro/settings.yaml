@@ -17,7 +17,4 @@ appId: ${APP_ID}
 - assertVisible:
     id: theme-${THEME}
 - takeScreenshot: settings-${LANG_CODE}-${THEME}
-- scrollUntilVisible:
-    element:
-      id: restore
-- takeScreenshot: settings-${LANG_CODE}-${THEME}-lower
+- runFlow: subflows/settings-payments-check.yaml
