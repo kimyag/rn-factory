@@ -7,6 +7,7 @@ const settings: AppSettings = {
     ios: 'com.example.templateapp',
     android: 'com.example.templateapp',
   },
+  usesNonExemptEncryption: false,
   appColor: {
     light: '#C8372D',
     dark: '#F0644E',

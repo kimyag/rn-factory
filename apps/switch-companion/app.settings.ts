@@ -7,6 +7,7 @@ const settings: AppSettings = {
     ios: 'com.kimyag.switchcompanion',
     android: 'com.kimyag.switchcompanion',
   },
+  usesNonExemptEncryption: false,
   appColor: {
     light: '#C8372D',
     dark: '#F0644E',
