@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { reserveQuota, utcDay, type QuotaStore } from './quota.ts';
-import { handleGenerate } from './server.ts';
+import { handleGenerate, handleSplit, handleTranscribe } from './server.ts';
 import { issueSession } from './identity.ts';
 import { callProvider } from './provider.ts';
 
@@ -75,6 +75,16 @@ test('free and premium users have distinct daily limits', async () => {
   assert.equal(await reserveQuota(store, 'premium', 'premium-next', true, 1, now), 'daily_limit');
 });
 
+test('daily quotas can be set per app and preserve the global spend limit', async () => {
+  const { store, values } = fakeUpstash();
+  const now = at('2026-10-06T12:00:00.000Z');
+  const limits = { free: 60, premium: 25 };
+  for (let i = 0; i < 60; i++) assert.equal(await reserveQuota(store, 'switch-free', `ip-${i}`, false, 0, now, limits), 'allowed');
+  assert.equal(await reserveQuota(store, 'switch-free', 'ip-next', false, 0, now, limits), 'daily_limit');
+  values.set('ai:spend:2026-10-06', { value: 5_000_000, expiresAt: Date.now() + 172_800_000 });
+  assert.equal(await reserveQuota(store, 'switch-premium', 'ip-premium', true, 1, now, limits), 'budget_limit');
+});
+
 test('global daily cost cap rejects a reservation that would exceed the cap', async () => {
   const { store, values } = fakeUpstash();
   values.set('ai:spend:2026-10-06', { value: 4_999_999, expiresAt: Date.now() + 172_800_000 });
@@ -112,6 +122,88 @@ test('server denies a limit hit without calling the fake provider', async () => 
   }, fakeFetch);
   assert.equal(response.status, 429);
   assert.equal(providerCalls, 0);
+});
+
+function dumpEnv(store: QuotaStore) {
+  return {
+    AI_MODULE_ENABLED: 'true', AI_PROVIDER: 'openai-compatible', AI_MODEL: 'openrouter/free',
+    AI_BASE_URL: 'https://openrouter.ai/api/v1', AI_INPUT_USD_PER_MTOK: '0', AI_OUTPUT_USD_PER_MTOK: '0',
+    OPENAI_COMPATIBLE_API_KEY: 'test-openrouter-key', GROQ_API_KEY: 'test-groq-key', AI_SIGNING_KEY: 'test-signing-secret',
+    UPSTASH_REDIS_REST_URL: store.url, UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
+  };
+}
+
+function authedRequest(url: string, token: string, body: BodyInit, headers: Record<string, string> = {}) {
+  return new Request(url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'X-Real-IP': '192.0.2.1', ...headers }, body });
+}
+
+test('transcription sends audio only to Groq and returns detected language without storing the transcript', async () => {
+  const { store, values } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  let providerCalls = 0;
+  const fetcher: typeof fetch = async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    providerCalls++;
+    assert.equal(String(input), 'https://api.groq.com/openai/v1/audio/transcriptions');
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-groq-key');
+    const form = init?.body as FormData;
+    assert.equal(form.get('model'), 'whisper-large-v3-turbo');
+    assert.equal(form.get('response_format'), 'verbose_json');
+    return Response.json({ text: 'Please send the document.', language: 'Turkish', duration: 12 });
+  };
+  const form = new FormData();
+  form.append('audio', new File(['audio bytes'], 'clip.m4a', { type: 'audio/mp4' }));
+  const response = await handleTranscribe(authedRequest('https://app.test/ai/transcribe', session.token, form), dumpEnv(store), fetcher);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { text: 'Please send the document.', language: 'Turkish' });
+  assert.equal(providerCalls, 1);
+  assert.equal([...values.keys()].some((key) => key.includes('transcript')), false);
+});
+
+test('split asks for strict structured output, preserves language and validates the provider response', async () => {
+  const { store } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  let providerCalls = 0;
+  const response = await handleSplit(authedRequest('https://app.test/ai/split', session.token,
+    JSON.stringify({ text: 'Yarın raporu gözden geçir.', detectedLanguage: 'Turkish' }), { 'Content-Type': 'application/json' }), dumpEnv(store), async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    providerCalls++;
+    assert.equal(String(input), 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-openrouter-key');
+    assert.equal(init?.redirect, 'error');
+    const payload = JSON.parse(String(init?.body)) as { model: string; messages: { content: string }[]; response_format: { json_schema: { strict: boolean } } };
+    assert.equal(payload.model, 'openrouter/free');
+    assert.match(payload.messages[0]!.content, /Preserve its language/);
+    assert.match(payload.messages[0]!.content, /Turkish/);
+    assert.equal(payload.response_format.json_schema.strict, true);
+    return Response.json({ choices: [{ message: { content: JSON.stringify({ whereIWas: 'Raporu hazırlıyorum.', looseEnds: ['Verileri doğrula.'], nextStep: 'Raporu gözden geçir.' }) }, finish_reason: 'stop' }], usage: { prompt_tokens: 20, completion_tokens: 12 } });
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { whereIWas: 'Raporu hazırlıyorum.', looseEnds: ['Verileri doğrula.'], nextStep: 'Raporu gözden geçir.' });
+  assert.equal(providerCalls, 1);
+});
+
+test('split rejects invalid provider shape and daily limits before extra calls', async () => {
+  const { store, values } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  let providerCalls = 0;
+  const request = () => authedRequest('https://app.test/ai/split', session.token,
+    JSON.stringify({ text: 'A valid note', detectedLanguage: 'English' }), { 'Content-Type': 'application/json' });
+  const env = dumpEnv(store);
+  const invalid = await handleSplit(request(), env, async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    providerCalls++;
+    return Response.json({ choices: [{ message: { content: '{"whereIWas":"Only one field"}' }, finish_reason: 'stop' }] });
+  });
+  assert.equal(invalid.status, 502);
+  values.set(`ai:user:${utcDay()}:${session.userId}`, { value: 60, expiresAt: Date.now() + 172_800_000 });
+  const limited = await handleSplit(request(), env, async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    providerCalls++;
+    return Response.json({});
+  }, { free: 60, premium: 25 });
+  assert.equal(limited.status, 429);
+  assert.equal(providerCalls, 1);
 });
 
 function openModelEnv(store: QuotaStore) {

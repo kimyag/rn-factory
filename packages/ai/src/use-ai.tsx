@@ -5,7 +5,7 @@ import { Button, Text, useTheme } from '@factory/ui';
 import { createContext, use, useRef, useState, type ReactNode } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 
-import { AiError, createAiClient, type AiErrorCode } from './client.ts';
+import { AiError, createAiClient, type AiErrorCode, type DumpSplit, type Transcription } from './client.ts';
 import { text } from './text/index.ts';
 import type { TeammateProfile } from './schema.ts';
 
@@ -13,6 +13,8 @@ type AiState = {
   available: boolean;
   profile: (input: string, onPartialJson?: (chunk: string) => void) => Promise<TeammateProfile>;
   answer: (input: string, onPartialText?: (chunk: string) => void) => Promise<string>;
+  transcribe: (audio: Blob) => Promise<Transcription>;
+  split: (input: string, detectedLanguage?: string) => Promise<DumpSplit>;
   message: (error: unknown) => string;
   openPaywall: () => void;
 };
@@ -67,6 +69,18 @@ export function AiProvider({ children }: { children: ReactNode }) {
     return client.answer(input, onPartialText);
   }
 
+  async function transcribe(audio: Blob): Promise<Transcription> {
+    if (!client) throw new AiError('unavailable');
+    if (!await confirmDisclosure()) throw new AiError('cancelled');
+    return client.transcribe(audio);
+  }
+
+  async function split(input: string, detectedLanguage?: string): Promise<DumpSplit> {
+    if (!client) throw new AiError('unavailable');
+    if (!await confirmDisclosure()) throw new AiError('cancelled');
+    return client.split(input, detectedLanguage);
+  }
+
   function message(error: unknown): string {
     const code = error instanceof AiError ? error.code : 'unavailable';
     const resetAt = error instanceof AiError ? error.resetAt : undefined;
@@ -92,7 +106,7 @@ export function AiProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AiContext value={{ available: client !== null, profile, answer, message, openPaywall: premium.openPaywall }}>
+    <AiContext value={{ available: client !== null, profile, answer, transcribe, split, message, openPaywall: premium.openPaywall }}>
       {children}
       <Modal animationType="fade" onRequestClose={() => answerDisclosure(false)} transparent visible={visible}>
           <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.colors.paper, justifyContent: 'center', padding: theme.spacing.edge }]}>

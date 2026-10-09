@@ -52,7 +52,8 @@ const settings: AppSettings = {
   ai: {
     serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER',
     openModelBaseUrl: 'https://openrouter.ai/api/v1',
-    openModel: 'openai/gpt-oss-20b:free',
+    openModel: 'openrouter/free',
+    dailyLimits: { free: 60, premium: 25 },
   },
   // The Test Store key works in development builds only. The store keys are
   // placeholders until #14, #15, and #16.

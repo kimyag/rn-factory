@@ -1,9 +1,8 @@
 # AI module
 
-`@factory/ai` sends one text input to an Expo API route and returns either a
-typed teammate profile or a text answer. Calls can stream partial output; for a
-structured profile, partial chunks are JSON text and become a typed object only
-after the complete response arrives.
+`@factory/ai` sends text and structured dump requests to Expo API routes. It
+returns typed teammate profiles, text answers, transcriptions, and validated
+task-dump splits.
 
 ## Enable an app
 
@@ -58,10 +57,29 @@ Only status and usage metadata are returned to the user. The global daily cost
 guard reserves the maximum estimated request cost before contacting a model,
 then reconciles the provider-reported token usage on success.
 
-Free users receive 5 requests per UTC day and premium users receive 25. Inputs
+`ai.dailyLimits` in each `app.settings.ts` configures free and premium requests
+per UTC day. Template apps default to 5 and 25; Switch Companion sets 60 and
+25. Each endpoint call costs one request. Inputs
 are limited to 32,000 characters, outputs to 1,500 tokens, and aggregate
 estimated provider spend to $5 per UTC day. New installs can reset an anonymous
 quota, so this is abuse resistance rather than account-level identity.
+
+## Transcription and dump splitting
+
+Set `GROQ_API_KEY` as a sensitive EAS Hosting environment value for
+transcription. The proxy uses Groq's OpenAI-compatible audio transcription API
+with `whisper-large-v3-turbo`; audio is limited to 25 MB and is not persisted by
+the server. The client should delete its local recording only after transcript
+text is saved locally.
+
+Dump splitting uses the server's OpenAI-compatible configuration. For
+Switch Companion, use `AI_PROVIDER=openai-compatible`,
+`AI_BASE_URL=https://openrouter.ai/api/v1`,
+`AI_MODEL=openrouter/free`, and `OPENAI_COMPATIBLE_API_KEY`. The free router
+selects an available free model that supports structured output. The response
+schema is validated before returning `whereIWas`, `looseEnds`, and `nextStep`.
+The prompt preserves the detected English, Turkish, or Farsi language. Each
+transcription and split request consumes one configured daily request.
 
 ## Compare providers
 

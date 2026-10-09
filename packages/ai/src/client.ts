@@ -2,12 +2,15 @@ import { storedValue } from '@factory/core/storage';
 import { fetch as expoFetch } from 'expo/fetch';
 import { z } from 'zod';
 
+import { dumpSplitSchema } from './dump-providers.ts';
 import { inputSchema, profileSchema, type AiTask, type TeammateProfile } from './schema.ts';
 
 const sessionSchema = z.strictObject({ userId: z.uuid(), token: z.string().min(1) });
 const savedSession = storedValue({ key: 'ai.session', schema: sessionSchema.nullable(), fallback: null });
 
 export type AiErrorCode = 'unavailable' | 'unauthorized' | 'too_long' | 'invalid_request' | 'daily_limit' | 'budget_limit' | 'burst_limit' | 'provider_error' | 'cancelled';
+export type DumpSplit = z.output<typeof dumpSplitSchema>;
+export type Transcription = { text: string; language: string };
 
 export class AiError extends Error {
   readonly code: AiErrorCode;
@@ -111,6 +114,19 @@ export function createAiClient({ serverUrl, openModelBaseUrl, openModel, identif
     return onDelta ? await readStream(response, onDelta) : dataObject(await response.json()).result;
   }
 
+  async function post(path: 'transcribe' | 'split', body: BodyInit, contentType?: string): Promise<unknown> {
+    const current = await session();
+    const headers = new Headers({ Authorization: `Bearer ${current.token}` });
+    if (contentType) headers.set('Content-Type', contentType);
+    const response = await fetcher(`${base}/ai/${path}`, { method: 'POST', headers, body });
+    if (response.status === 401) {
+      savedSession.set(null);
+      throw new AiError('unauthorized');
+    }
+    if (!response.ok) throw asError(await response.json());
+    return response.json();
+  }
+
   return {
     async profile(input: string, onDelta?: (delta: string) => void): Promise<TeammateProfile> {
       return profileSchema.parse(await generate('profile', input, onDelta));
@@ -119,6 +135,19 @@ export function createAiClient({ serverUrl, openModelBaseUrl, openModel, identif
       const result = await generate('answer', input, onDelta);
       if (typeof result !== 'string') throw new AiError('provider_error');
       return result;
+    },
+    async transcribe(audio: Blob): Promise<Transcription> {
+      if (audio.size === 0 || audio.size > 25 * 1024 * 1024) throw new AiError(audio.size > 25 * 1024 * 1024 ? 'too_long' : 'invalid_request');
+      const body = new FormData();
+      body.append('audio', audio, 'dump-audio.m4a');
+      const value = dataObject(await post('transcribe', body));
+      if (typeof value.text !== 'string' || typeof value.language !== 'string') throw new AiError('provider_error');
+      return { text: value.text, language: value.language };
+    },
+    async split(text: string, detectedLanguage?: string): Promise<DumpSplit> {
+      const parsed = inputSchema.safeParse(text);
+      if (!parsed.success) throw new AiError(text.length > 32_000 ? 'too_long' : 'invalid_request');
+      return dumpSplitSchema.parse(await post('split', JSON.stringify({ text: parsed.data, detectedLanguage }), 'application/json'));
     },
   };
 }

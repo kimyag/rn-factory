@@ -1,7 +1,9 @@
 import { hashIp, issueSession, verifySession } from './identity.ts';
 import { callProvider, type ProviderName } from './provider.ts';
-import { actualMicroUsd, allowSession, reserveMicroUsd, reserveQuota, resetAt, settleQuota, type QuotaStore } from './quota.ts';
-import { instructions, profileJsonSchema, profileSchema, requestSchema } from './schema.ts';
+import { actualMicroUsd, allowSession, defaultDailyLimits, reserveMicroUsd, reserveQuota, resetAt, settleQuota, type DailyLimits, type QuotaStore } from './quota.ts';
+import { inputSchema, instructions, profileJsonSchema, profileSchema, requestSchema } from './schema.ts';
+import { callGroqTranscription, callOpenRouterSplit } from './dump-providers.ts';
+import { z } from 'zod';
 
 type ServerEnv = Record<string, string | undefined>;
 type ServerConfig = {
@@ -14,6 +16,7 @@ type ServerConfig = {
   inputRate: number;
   outputRate: number;
   revenueCatKey: string | null;
+  groqApiKey: string | null;
 };
 
 const models = {
@@ -66,6 +69,7 @@ function config(env: ServerEnv, fetcher: typeof fetch): ServerConfig | null {
     store: { url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN, fetcher },
     provider, apiKey, baseUrl, model, inputRate: rate.inputRate, outputRate: rate.outputRate,
     revenueCatKey: configured(env.REVENUECAT_PUBLIC_API_KEY) ? env.REVENUECAT_PUBLIC_API_KEY : null,
+    groqApiKey: configured(env.GROQ_API_KEY) ? env.GROQ_API_KEY : null,
   };
 }
 
@@ -129,7 +133,7 @@ export async function handleSession(request: Request, env: ServerEnv = process.e
   }
 }
 
-export async function handleGenerate(request: Request, env: ServerEnv = process.env, fetcher: typeof fetch = fetch): Promise<Response> {
+export async function handleGenerate(request: Request, env: ServerEnv = process.env, fetcher: typeof fetch = fetch, dailyLimits: DailyLimits = defaultDailyLimits): Promise<Response> {
   const settings = config(env, fetcher);
   if (!settings) return json({ code: 'unavailable' }, 503);
   const ip = requestIp(request);
@@ -173,7 +177,7 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
   const now = new Date();
   try {
     const premium = await premiumFor(userId, settings, fetcher);
-    const decision = await reserveQuota(settings.store, userId, await hashIp(ip), premium, reserved, now);
+    const decision = await reserveQuota(settings.store, userId, await hashIp(ip), premium, reserved, now, dailyLimits);
     if (decision !== 'allowed') return json({ code: decision, resetAt: resetAt(now), premium }, 429);
   } catch {
     return json({ code: 'unavailable' }, 503);
@@ -239,4 +243,108 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
     },
   });
   return new Response(body, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
+const maxAudioBytes = 25 * 1024 * 1024;
+const transcriptionReservationMicroUsd = 1_000_000;
+const transcriptionUsdPerHour = 0.04;
+const splitRequestSchema = z.strictObject({ text: inputSchema, detectedLanguage: z.string().trim().min(1).max(80).optional() });
+
+function authenticatedUser(request: Request) {
+  const ip = requestIp(request);
+  const token = request.headers.get('Authorization')?.replace(/^Bearer /, '') ?? '';
+  return { ip, token };
+}
+
+function quotaResponse(decision: string, premium: boolean, now: Date) {
+  return json({ code: decision, resetAt: resetAt(now), premium }, 429);
+}
+
+export async function handleTranscribe(
+  request: Request,
+  env: ServerEnv = process.env,
+  fetcher: typeof fetch = fetch,
+  dailyLimits: DailyLimits = defaultDailyLimits,
+): Promise<Response> {
+  const settings = config(env, fetcher);
+  if (!settings || !settings.groqApiKey) return json({ code: 'unavailable' }, 503);
+  const { ip, token } = authenticatedUser(request);
+  if (!ip) return json({ code: 'unavailable' }, 503);
+  const userId = await verifySession(settings.secret, token);
+  if (!userId) return json({ code: 'unauthorized' }, 401);
+  const length = Number(request.headers.get('Content-Length'));
+  if (Number.isFinite(length) && length > maxAudioBytes + 512_000) return json({ code: 'too_long' }, 413);
+  let form: { get(name: string): FormDataEntryValue | null };
+  try {
+    form = await request.formData() as unknown as { get(name: string): FormDataEntryValue | null };
+  } catch {
+    return json({ code: 'invalid_request' }, 400);
+  }
+  const audio = form.get('audio');
+  if (!(audio instanceof File) || audio.size === 0) return json({ code: 'invalid_request' }, 400);
+  if (audio.size > maxAudioBytes) return json({ code: 'too_long' }, 413);
+  const now = new Date();
+  let premium: boolean;
+  try {
+    premium = await premiumFor(userId, settings, fetcher);
+    const decision = await reserveQuota(
+      settings.store, userId, await hashIp(ip), premium, transcriptionReservationMicroUsd, now, dailyLimits,
+    );
+    if (decision !== 'allowed') return quotaResponse(decision, premium, now);
+  } catch {
+    return json({ code: 'unavailable' }, 503);
+  }
+  try {
+    const transcript = await callGroqTranscription(audio, settings.groqApiKey, fetcher);
+    const actual = Math.ceil(transcript.duration / 3_600 * transcriptionUsdPerHour * 1_000_000);
+    await settleQuota(settings.store, transcriptionReservationMicroUsd, actual, now).catch(() => undefined);
+    return json({ text: transcript.text, language: transcript.language });
+  } catch (error) {
+    return json({ code: error instanceof Error ? error.message : 'provider_error' }, 502);
+  }
+}
+
+export async function handleSplit(
+  request: Request,
+  env: ServerEnv = process.env,
+  fetcher: typeof fetch = fetch,
+  dailyLimits: DailyLimits = defaultDailyLimits,
+): Promise<Response> {
+  const settings = config(env, fetcher);
+  if (!settings || settings.provider !== 'openai-compatible' || !settings.baseUrl) return json({ code: 'unavailable' }, 503);
+  const { ip, token } = authenticatedUser(request);
+  if (!ip) return json({ code: 'unavailable' }, 503);
+  const userId = await verifySession(settings.secret, token);
+  if (!userId) return json({ code: 'unauthorized' }, 401);
+  const length = Number(request.headers.get('Content-Length'));
+  if (Number.isFinite(length) && length > 50_000) return json({ code: 'too_long' }, 413);
+  let submitted: unknown;
+  try { submitted = await request.json(); } catch { return json({ code: 'invalid_request' }, 400); }
+  const parsed = splitRequestSchema.safeParse(submitted);
+  if (!parsed.success) return json({ code: 'invalid_request' }, 400);
+  const now = new Date();
+  const prompt = `${parsed.data.detectedLanguage ?? 'Auto-detect the input language.'}\n\n${parsed.data.text}`;
+  const reserved = reserveMicroUsd(prompt, settings.inputRate, settings.outputRate);
+  let premium: boolean;
+  try {
+    premium = await premiumFor(userId, settings, fetcher);
+    const decision = await reserveQuota(settings.store, userId, await hashIp(ip), premium, reserved, now, dailyLimits);
+    if (decision !== 'allowed') return quotaResponse(decision, premium, now);
+  } catch {
+    return json({ code: 'unavailable' }, 503);
+  }
+  try {
+    const result = await callOpenRouterSplit({
+      text: parsed.data.text,
+      detectedLanguage: parsed.data.detectedLanguage,
+      apiKey: settings.apiKey,
+      baseUrl: settings.baseUrl,
+      model: settings.model,
+      fetcher,
+    });
+    await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+    return json(result.result);
+  } catch {
+    return json({ code: 'provider_error' }, 502);
+  }
 }
