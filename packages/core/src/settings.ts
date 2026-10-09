@@ -43,9 +43,8 @@ const customFont = z.strictObject({
 const fontRole = z.union([z.literal('system'), customFont]);
 
 export const reminderSettingsSchema = z.strictObject({
-  enabled: z.boolean(),
+  wantsReminders: z.boolean(),
   time: z.string(),
-  id: z.string().nullable(),
 });
 
 const branding = z.strictObject({

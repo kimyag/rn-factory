@@ -1,68 +1,54 @@
 import { useText } from '@factory/app';
-import { cancelReminder, hasReminderPermission, listReminders, requestReminderPermission, scheduleReminder } from '@factory/reminders';
+import { requestReminderPermission, scheduleReminder } from '@factory/reminders';
 import { reminderSettingsSchema } from '@factory/core';
 import { storedValue } from '@factory/core/storage';
 import { createStyles, Text, useTheme } from '@factory/ui';
-import { useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Pressable, Switch, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Linking, Pressable, Switch, TextInput, View } from 'react-native';
 
 import { text } from './text/index.ts';
-import { defaultReminderSettings, disableReminder, reminderSwitchIsOn } from './reminder-switch-state.ts';
+import { defaultReminderSettings, disableReminder, migrateReminderSettings, reminderSwitchIsOn } from './reminder-switch-state.ts';
+import { cancelSettingsReminder, refreshReminderOsState, settingsReminderKey, useReminderOsState } from './use-reminder-os-state.ts';
 
 const reminderSettings = storedValue({
   key: 'reminders.settings',
   schema: reminderSettingsSchema,
+  version: 2,
+  migrate: migrateReminderSettings,
   fallback: defaultReminderSettings,
 });
 
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 type ReminderError = 'reminders.denied' | 'reminders.failed' | 'reminders.invalidTime';
 
+function readReminderSettings() {
+  const settings = reminderSettings.get();
+  if (typeof localStorage !== 'undefined') {
+    reminderSettings.set(settings);
+  }
+  return settings;
+}
+
 export function RemindersRow() {
   const t = useText(text);
   const theme = useTheme();
   const styles = useStyles();
-  const [settings, setSettings] = useState(reminderSettings.get);
-  const settingsRef = useRef(settings);
+  const [settings, setSettings] = useState(readReminderSettings);
   const [draftTime, setDraftTime] = useState(settings.time);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const [reminderScheduled, setReminderScheduled] = useState(false);
+  const reminderOsState = useReminderOsState();
   const [error, setError] = useState<ReminderError | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  const switchOn = reminderSwitchIsOn(settings.enabled, permissionGranted, reminderScheduled);
-
-  useEffect(() => {
-    let mounted = true;
-    async function refresh() {
-      const [permitted, scheduledReminders] = await Promise.all([
-        hasReminderPermission().catch(() => false),
-        listReminders().catch(() => []),
-      ]);
-      if (!mounted) {
-        return;
-      }
-      setPermissionGranted(permitted);
-      const current = settingsRef.current;
-      setReminderScheduled(current.id !== null && scheduledReminders.some(({ id }) => id === current.id));
-      setError((previous) => current.enabled && !permitted
-        ? 'reminders.denied'
-        : previous === 'reminders.denied' ? null : previous);
-    }
-    void refresh();
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        void refresh();
-      }
-    });
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, []);
+  const switchOn = reminderSwitchIsOn(
+    settings.wantsReminders,
+    reminderOsState.permissionGranted,
+    reminderOsState.scheduled,
+  );
+  const visibleError = settings.wantsReminders && reminderOsState.permissionGranted === false
+    ? 'reminders.denied'
+    : error === 'reminders.denied' && reminderOsState.permissionGranted === true ? null : error;
 
   function save(next: typeof settings) {
-    settingsRef.current = next;
     setSettings(next);
     reminderSettings.set(next);
   }
@@ -71,7 +57,7 @@ export function RemindersRow() {
     if (busyRef.current) {
       return;
     }
-    const current = settingsRef.current;
+    const current = settings;
     if (!timePattern.test(draftTime)) {
       setError('reminders.invalidTime');
       return;
@@ -80,24 +66,22 @@ export function RemindersRow() {
     setBusy(true);
     setError(null);
     try {
-      const permitted = await requestReminderPermission(t('reminders.title'));
-      if (!permitted) {
-        setPermissionGranted(false);
-        setError('reminders.denied');
+      await requestReminderPermission(t('reminders.title'));
+      const permissionState = await refreshReminderOsState();
+      if (permissionState.permissionGranted !== true) {
+        setError(permissionState.permissionGranted === false ? 'reminders.denied' : 'reminders.failed');
         return;
       }
-      setPermissionGranted(true);
-      if (current.id !== null) {
-        await cancelReminder(current.id);
-      }
+      await cancelSettingsReminder();
       const [hour, minute] = draftTime.split(':').map(Number);
-      const id = await scheduleReminder({
+      await scheduleReminder({
         title: t('reminders.title'),
         body: t('reminders.explanation'),
         trigger: { type: 'daily', hour: hour ?? 9, minute: minute ?? 0 },
+        key: settingsReminderKey,
       });
-      save({ ...current, enabled: true, time: draftTime, id });
-      setReminderScheduled(true);
+      save({ ...current, wantsReminders: true, time: draftTime });
+      await refreshReminderOsState();
     } catch {
       setError('reminders.failed');
     } finally {
@@ -110,13 +94,13 @@ export function RemindersRow() {
     if (busyRef.current) {
       return;
     }
-    const current = settingsRef.current;
+    const current = settings;
     busyRef.current = true;
     setBusy(true);
     setError(null);
-    setReminderScheduled(false);
     try {
-      await disableReminder(current, cancelReminder, save);
+      await disableReminder(current, cancelSettingsReminder, save);
+      await refreshReminderOsState();
     } catch {
       setError('reminders.failed');
     } finally {
@@ -130,8 +114,8 @@ export function RemindersRow() {
       return;
     }
     setDraftTime(time);
-    const current = settingsRef.current;
-    if (!current.enabled) {
+    const current = settings;
+    if (!current.wantsReminders) {
       if (!timePattern.test(time)) {
         setError('reminders.invalidTime');
         return;
@@ -149,20 +133,15 @@ export function RemindersRow() {
     setError(null);
     try {
       const [hour, minute] = time.split(':').map(Number);
-      const id = await scheduleReminder({
+      await cancelSettingsReminder();
+      await scheduleReminder({
         title: t('reminders.title'),
         body: t('reminders.explanation'),
         trigger: { type: 'daily', hour: hour ?? 9, minute: minute ?? 0 },
+        key: settingsReminderKey,
       });
-      if (current.id) {
-        try {
-          await cancelReminder(current.id);
-        } catch (cause) {
-          await cancelReminder(id);
-          throw cause;
-        }
-      }
-      save({ ...current, time, id });
+      save({ ...current, time });
+      await refreshReminderOsState();
     } catch {
       setError('reminders.failed');
     } finally {
@@ -205,8 +184,8 @@ export function RemindersRow() {
           ios_backgroundColor={theme.colors.inkMuted}
         />
       </View>
-      {error !== null && <Text testID={error === 'reminders.denied' ? 'reminders-permission-denied' : undefined} variant="caption">{t(error)}</Text>}
-      {error === 'reminders.denied' && (
+      {visibleError !== null && <Text testID={visibleError === 'reminders.denied' ? 'reminders-permission-denied' : undefined} variant="caption">{t(visibleError)}</Text>}
+      {visibleError === 'reminders.denied' && (
         <Pressable
           accessibilityRole="button"
           onPress={() => void Linking.openSettings().catch(() => undefined)}
