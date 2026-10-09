@@ -10,3 +10,5 @@ android/
 .env*.local
 .claude/worktrees/
 maestro-screenshots/
+.venv-performance/
+__pycache__/
