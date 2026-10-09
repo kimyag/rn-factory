@@ -17,6 +17,7 @@ const settings: AppSettings = {
       androidAdaptiveIcon: {
         foreground: './assets/images/android-icon-foreground.png',
         monochrome: './assets/images/android-icon-monochrome.png',
+        backgroundImage: './assets/images/android-icon-background.png',
         background: '#F7F6F2',
       },
       splash: {
