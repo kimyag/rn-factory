@@ -8,6 +8,7 @@ export const en = {
   'reminders.time': 'Time (24-hour format)',
   'reminders.timePlaceholder': '09:00',
   'reminders.enabled': 'Enable',
+  'reminders.openSettings': 'Open settings',
   'reminders.invalidTime': 'Enter a time from 00:00 to 23:59.',
   'reminders.denied': 'Notifications are off. Allow them in your device settings to receive reminders.',
   'reminders.failed': 'The reminder could not be saved. Try again.',

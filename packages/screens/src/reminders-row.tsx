@@ -4,7 +4,7 @@ import { reminderSettingsSchema } from '@factory/core';
 import { storedValue } from '@factory/core/storage';
 import { createStyles, Text, useTheme } from '@factory/ui';
 import { useRef, useState } from 'react';
-import { Switch, TextInput, View } from 'react-native';
+import { Linking, Pressable, Switch, TextInput, View } from 'react-native';
 
 import { text } from './text/index.ts';
 
@@ -15,6 +15,7 @@ const reminderSettings = storedValue({
 });
 
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+type ReminderError = 'reminders.denied' | 'reminders.failed' | 'reminders.invalidTime';
 
 export function RemindersRow() {
   const t = useText(text);
@@ -23,7 +24,7 @@ export function RemindersRow() {
   const [settings, setSettings] = useState(reminderSettings.get);
   const settingsRef = useRef(settings);
   const [draftTime, setDraftTime] = useState(settings.time);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ReminderError | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
 
@@ -39,7 +40,7 @@ export function RemindersRow() {
     }
     const current = settingsRef.current;
     if (!timePattern.test(draftTime)) {
-      setError(t('reminders.invalidTime'));
+      setError('reminders.invalidTime');
       return;
     }
     busyRef.current = true;
@@ -48,7 +49,7 @@ export function RemindersRow() {
     try {
       const permitted = await requestReminderPermission(t('reminders.title'));
       if (!permitted) {
-        setError(t('reminders.denied'));
+        setError('reminders.denied');
         return;
       }
       const [hour, minute] = draftTime.split(':').map(Number);
@@ -59,7 +60,7 @@ export function RemindersRow() {
       });
       save({ ...current, enabled: true, time: draftTime, id });
     } catch {
-      setError(t('reminders.failed'));
+      setError('reminders.failed');
     } finally {
       setBusy(false);
       busyRef.current = false;
@@ -80,7 +81,7 @@ export function RemindersRow() {
       }
       save({ ...current, enabled: false, id: null });
     } catch {
-      setError(t('reminders.failed'));
+      setError('reminders.failed');
     } finally {
       setBusy(false);
       busyRef.current = false;
@@ -95,7 +96,7 @@ export function RemindersRow() {
     const current = settingsRef.current;
     if (!current.enabled) {
       if (!timePattern.test(time)) {
-        setError(t('reminders.invalidTime'));
+        setError('reminders.invalidTime');
         return;
       }
       setError(null);
@@ -103,7 +104,7 @@ export function RemindersRow() {
       return;
     }
     if (!timePattern.test(time)) {
-      setError(t('reminders.invalidTime'));
+      setError('reminders.invalidTime');
       return;
     }
     busyRef.current = true;
@@ -126,7 +127,7 @@ export function RemindersRow() {
       }
       save({ ...current, time, id });
     } catch {
-      setError(t('reminders.failed'));
+      setError('reminders.failed');
     } finally {
       setBusy(false);
       busyRef.current = false;
@@ -135,7 +136,7 @@ export function RemindersRow() {
 
   return (
     <View style={styles.section}>
-      <Text variant="caption" accessibilityRole="header">{t('reminders.title')}</Text>
+      <Text testID="reminders-title" variant="caption" accessibilityRole="header">{t('reminders.title')}</Text>
       <Text>{t('reminders.explanation')}</Text>
       <View style={styles.row}>
         <Text>{t('reminders.time')}</Text>
@@ -158,6 +159,7 @@ export function RemindersRow() {
         <Text>{t('reminders.enabled')}</Text>
         <Switch
           accessibilityLabel={t('reminders.enabled')}
+          testID="reminders-enabled"
           disabled={busy}
           value={settings.enabled}
           onValueChange={(enabled) => void (enabled ? enable() : disable())}
@@ -166,7 +168,17 @@ export function RemindersRow() {
           ios_backgroundColor={theme.colors.inkMuted}
         />
       </View>
-      {error !== null && <Text variant="caption">{error}</Text>}
+      {error !== null && <Text testID={error === 'reminders.denied' ? 'reminders-permission-denied' : undefined} variant="caption">{t(error)}</Text>}
+      {error === 'reminders.denied' && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void Linking.openSettings().catch(() => undefined)}
+          style={styles.settingsAction}
+          testID="reminders-open-settings"
+        >
+          <Text>{t('reminders.openSettings')}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -174,6 +186,7 @@ export function RemindersRow() {
 const useStyles = createStyles((theme) => ({
   section: { gap: theme.spacing.gapWide },
   row: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.gap },
+  settingsAction: { minHeight: theme.spacing.edge * 3, justifyContent: 'center' },
   input: {
     minWidth: 88,
     minHeight: 44,
