@@ -5,6 +5,7 @@ import json
 import math
 import re
 import sys
+from contextlib import redirect_stdout
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -51,30 +52,33 @@ def summarize(
     }
 
 
+def frame_timeline_query(app_id: str) -> str:
+    app_literal = app_id.replace("'", "''")
+    return f"""
+        SELECT surface_frame_token,
+               MIN(ts) AS ts,
+               MAX(CASE WHEN jank_type IS NOT NULL AND jank_type != 'None' THEN 1 ELSE 0 END) AS janky
+        FROM actual_frame_timeline_slice
+        WHERE instr(layer_name, '{app_literal}') > 0
+          AND layer_name NOT LIKE '%Splash Screen%'
+          AND surface_frame_token IS NOT NULL
+        GROUP BY surface_frame_token
+        ORDER BY ts
+        """
+
+
 def analyze(trace_path: Path, app_id: str) -> dict[str, Any]:
     if not APP_ID_PATTERN.fullmatch(app_id):
         raise ValueError(f"Invalid Android application ID: {app_id}")
+    app_literal = app_id.replace("'", "''")
 
     # The package pins the matching Trace Processor binary; do not fetch latest.
     from perfetto.trace_processor import TraceProcessor
 
-    app_literal = app_id.replace("'", "''")
     with TraceProcessor(trace=str(trace_path)) as processor:
         frames = [
             {"ts": row.ts, "janky": row.janky}
-            for row in processor.query(
-                f"""
-                SELECT surface_frame_token,
-                       MIN(ts) AS ts,
-                       MAX(CASE WHEN jank_type IS NOT NULL AND jank_type != 'None' THEN 1 ELSE 0 END) AS janky
-                FROM actual_frame_timeline_slice
-                JOIN process USING (upid)
-                WHERE process.name = '{app_literal}'
-                  AND surface_frame_token IS NOT NULL
-                GROUP BY surface_frame_token
-                ORDER BY ts
-                """
-            )
+            for row in processor.query(frame_timeline_query(app_id))
         ]
         cpu_rows = list(
             processor.query(
@@ -96,16 +100,33 @@ def analyze(trace_path: Path, app_id: str) -> dict[str, Any]:
 
 
 def main() -> int:
+    if len(sys.argv) == 2 and sys.argv[1] == "--prepare":
+        try:
+            with redirect_stdout(sys.stderr):
+                prepare_trace_processor()
+        except Exception as error:  # The CLI should provide a useful setup error.
+            sys.stderr.write(f"Pinned Perfetto Trace Processor setup failed: {error}\n")
+            return 1
+        sys.stderr.write("Pinned Perfetto Trace Processor is ready.\n")
+        return 0
     if len(sys.argv) != 3:
-        sys.stderr.write("Usage: python3 scripts/perfetto_report.py <trace.pftrace> <android-app-id>\n")
+        sys.stderr.write("Usage: python3 scripts/perfetto_report.py --prepare | <trace.pftrace> <android-app-id>\n")
         return 2
     try:
-        result = analyze(Path(sys.argv[1]), sys.argv[2])
+        with redirect_stdout(sys.stderr):
+            result = analyze(Path(sys.argv[1]), sys.argv[2])
     except Exception as error:  # The CLI should report a useful error and preserve the raw trace.
         sys.stderr.write(f"Perfetto report failed: {error}\n")
         return 1
     sys.stdout.write(f"{json.dumps(result, sort_keys=True)}\n")
     return 0
+
+
+def prepare_trace_processor() -> str:
+    from perfetto.prebuilts.manifests.trace_processor_shell import TRACE_PROCESSOR_SHELL_MANIFEST
+    from perfetto.prebuilts.perfetto_prebuilts import get_perfetto_prebuilt
+
+    return get_perfetto_prebuilt(TRACE_PROCESSOR_SHELL_MANIFEST)
 
 
 if __name__ == "__main__":

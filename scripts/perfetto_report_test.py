@@ -1,9 +1,52 @@
+import json
+import sys
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
+from unittest.mock import patch
 
-from perfetto_report import summarize
+from perfetto_report import frame_timeline_query, main, summarize
 
 
 class SummarizeTest(unittest.TestCase):
+    def test_frame_query_matches_app_layer_not_surfaceflinger_process_name(self):
+        query = frame_timeline_query('com.example.app')
+        self.assertIn("instr(layer_name, 'com.example.app') > 0", query)
+        self.assertNotIn('JOIN process', query)
+        self.assertIn('surface_frame_token IS NOT NULL', query)
+
+    def test_processor_logs_do_not_contaminate_report_json(self):
+        stdout = StringIO()
+        stderr = StringIO()
+
+        def noisy_analysis(_trace, _app_id):
+            print('Downloading pinned Trace Processor')
+            return {"frame_count": 0}
+
+        with patch.object(sys, 'argv', ['perfetto_report.py', 'trace.pftrace', 'com.example.app']):
+            with patch('perfetto_report.analyze', side_effect=noisy_analysis):
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    self.assertEqual(main(), 0)
+
+        self.assertEqual(json.loads(stdout.getvalue()), {"frame_count": 0})
+        self.assertIn('Downloading pinned Trace Processor', stderr.getvalue())
+
+    def test_prepare_download_logs_do_not_use_stdout(self):
+        stdout = StringIO()
+        stderr = StringIO()
+
+        def noisy_prepare():
+            print('Downloading pinned Trace Processor')
+            return '/tmp/trace_processor_shell'
+
+        with patch.object(sys, 'argv', ['perfetto_report.py', '--prepare']):
+            with patch('perfetto_report.prepare_trace_processor', side_effect=noisy_prepare):
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    self.assertEqual(main(), 0)
+
+        self.assertEqual(stdout.getvalue(), '')
+        self.assertIn('Downloading pinned Trace Processor', stderr.getvalue())
+
     def test_reports_average_fps_jank_percentiles_and_one_core_cpu(self):
         result = summarize(
             [

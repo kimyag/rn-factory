@@ -19,9 +19,11 @@ python3 -m venv .venv-performance
 python -m pip install -r requirements-performance.txt
 ```
 
-The exact `perfetto` Python package version pins the matching Trace Processor;
-the report never fetches a newer binary. CI exercises flow preparation and
-metric calculations without installing the processor or building a native app.
+The exact `perfetto` Python package version pins the matching Trace Processor.
+The runner downloads and verifies that binary before it starts a device trace;
+download and processor logs go to stderr so the report's stdout stays valid
+JSON. CI exercises flow preparation and metric calculations without installing
+the processor or building a native app.
 
 ## Run
 
@@ -38,14 +40,18 @@ Traces and reports go to the ignored
 traces local: they can contain process, package, and system scheduling data.
 
 The trace covers process startup through the end of the flow, rather than only
-the time spent in Maestro steps. `average_fps` uses app FrameTimeline frame
-timestamps. `frame_interval_ms_p50` and `frame_interval_ms_p95` describe the
-gaps between those frames. `jank_percent` counts app frames with any reported
-FrameTimeline jank type; system load can contribute to jank. `cpu_ms` sums
+the time spent in Maestro steps. `average_fps` uses FrameTimeline slices whose
+layer name contains the app ID. SurfaceFlinger owns those slices, so filtering
+by process name would miss the app. `frame_interval_ms_p50` and
+`frame_interval_ms_p95` describe the gaps between those frames. `jank_percent`
+counts app frames with any reported FrameTimeline jank type; system load can
+contribute to jank. `cpu_ms` sums
 scheduled CPU time for the app process and its subprocesses over the trace.
 `cpu_percent_one_core` divides that time by the total trace duration, where
 100% means one core was busy throughout. Missing frame data is reported as
 `null`; this can happen when the device does not expose FrameTimeline data.
+On Android versions before 12/API 31, the runner reports FrameTimeline as
+unsupported; it does not currently collect an older frame-metric fallback.
 
 Use the same device, build type, flow, and initial app state when comparing
 changes. These measurements help compare runs; they are not a device-independent

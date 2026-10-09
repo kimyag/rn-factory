@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { connectedDevices, flowsIn, maestroArgs, parseArgs, selectFlows } from './maestro-lib.ts';
-import { preparePreviewFlow } from './maestro-flow.ts';
+import { preparePerformanceFlow } from './maestro-flow.ts';
 import { traceCommands, traceConfig, validateAppId } from './perf-maestro-lib.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -73,17 +73,26 @@ async function main() {
   }
   const apiLevel = Number(checked('adb', ['shell', 'getprop', 'ro.build.version.sdk']));
   if (!Number.isInteger(apiLevel) || apiLevel < 31) {
-    fail(`Perfetto FrameTimeline needs Android 12 or newer (device API level: ${apiLevel || 'unknown'}).`);
+    fail(`Unsupported Android API ${apiLevel || 'unknown'}: FrameTimeline requires Android 12/API 31+, and this runner has no frame-metric fallback for older versions.`);
   }
   if (!checked('adb', ['shell', 'pm', 'path', appId]).includes('package:')) {
     fail(`Install a standalone release build for ${appId} first. Do not use the development client for performance measurements.`);
+  }
+
+  const python = pythonBinary();
+  const processorSetup = spawnSync(python, ['scripts/perfetto_report.py', '--prepare'], { cwd: root, encoding: 'utf8' });
+  if (processorSetup.error || processorSetup.status !== 0) {
+    fail(`Pinned Perfetto Trace Processor setup failed: ${processorSetup.error?.message ?? processorSetup.stderr ?? processorSetup.stdout}`);
+  }
+  if (processorSetup.stderr.trim()) {
+    process.stderr.write(`${processorSetup.stderr.trim()}\n`);
   }
 
   const stamp = new Date().toISOString().replace(/\.\d+Z$/, '').replace(/[-:]/g, '').replace('T', '-');
   const out = join(root, 'maestro-screenshots', 'performance', options.app, flow.name, stamp);
   mkdirSync(out, { recursive: true });
   const flowDir = mkdtempSync(join(tmpdir(), 'rn-factory-maestro-perf-'));
-  const releaseFlowFile = preparePreviewFlow(flow, sharedDir, appFlowsDir, flowDir).file;
+  const releaseFlowFile = preparePerformanceFlow(flow, sharedDir, appFlowsDir, flowDir).file;
   const key = `rn-factory-${stamp}`;
   const remoteTrace = `/data/misc/perfetto-traces/${key}.pftrace`;
   const trace = join(out, `${flow.name}.pftrace`);
@@ -132,7 +141,7 @@ async function main() {
     throw runError;
   }
 
-  const report = spawnSync(pythonBinary(), ['scripts/perfetto_report.py', trace, appId], { cwd: root, encoding: 'utf8' });
+  const report = spawnSync(python, ['scripts/perfetto_report.py', trace, appId], { cwd: root, encoding: 'utf8' });
   if (report.error || report.status !== 0) {
     fail(`Perfetto analysis failed: ${report.error?.message ?? report.stderr ?? report.stdout}`);
   }

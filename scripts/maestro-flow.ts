@@ -62,3 +62,12 @@ export function preparePreviewFlow(
 ): Flow {
   return prepareFlow(flow, sharedFlowsDir, appFlowsDir, outputDir, true, paymentsAvailable);
 }
+
+export function preparePerformanceFlow(
+  flow: Flow,
+  sharedFlowsDir: string,
+  appFlowsDir: string,
+  outputDir: string,
+): Flow {
+  return preparePreviewFlow(flow, sharedFlowsDir, appFlowsDir, outputDir, false);
+}
