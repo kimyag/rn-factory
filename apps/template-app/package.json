@@ -10,6 +10,7 @@
     "@factory/screens": "workspace:*",
     "@factory/ui": "workspace:*",
     "@sentry/react-native": "~7.11.0",
+    "@shopify/flash-list": "2.0.2",
     "expo": "~57.0.26",
     "expo-application": "~57.0.3",
     "expo-constants": "~57.0.20",
