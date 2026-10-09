@@ -44,6 +44,7 @@ export default (context: ConfigContext): ExpoConfig => {
       ],
       adaptiveIcon: {
         backgroundColor: settings.branding.assets.androidAdaptiveIcon.background,
+        backgroundImage: settings.branding.assets.androidAdaptiveIcon.backgroundImage,
         foregroundImage: settings.branding.assets.androidAdaptiveIcon.foreground,
         monochromeImage: settings.branding.assets.androidAdaptiveIcon.monochrome,
       },
