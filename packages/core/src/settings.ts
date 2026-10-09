@@ -131,6 +131,10 @@ export const appSettingsSchema = z.strictObject({
       'must be an HTTPS OpenAI-compatible API base URL or a NAME_PLACEHOLDER',
     ),
     openModel: z.string().trim().min(1),
+    dailyLimits: z.strictObject({
+      free: z.number().int().min(1).max(100_000),
+      premium: z.number().int().min(1).max(100_000),
+    }),
   }),
   eas: z.strictObject({
     owner: realOrPlaceholder(/^[a-z0-9][a-z0-9_-]*$/, 'must be your Expo username or organization'),

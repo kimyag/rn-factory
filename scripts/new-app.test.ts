@@ -42,6 +42,7 @@ test('a new app gets its own validated settings, fonts file, and no template ide
     assert.equal(settings.slug, 'rosas-garden');
     assert.deepEqual(settings.appColor, { light: '#2F6B3A', dark: '#7FD08A' });
     assert.equal(settings.modules.payments, false);
+    assert.deepEqual(settings.ai.dailyLimits, { free: 5, premium: 25 });
     assert.equal(settings.usesNonExemptEncryption, false);
     assert.equal(settings.eas.owner, 'EAS_OWNER_PLACEHOLDER');
     assert.equal(settings.eas.projectId, 'EAS_PROJECT_ID_PLACEHOLDER');

@@ -2,6 +2,8 @@ import type { Usage } from './provider.ts';
 
 export type QuotaStore = { url: string; token: string; fetcher?: typeof fetch };
 export type QuotaDecision = 'allowed' | 'daily_limit' | 'budget_limit' | 'burst_limit';
+export type DailyLimits = { free: number; premium: number };
+export const defaultDailyLimits: DailyLimits = { free: 5, premium: 25 };
 
 const reserveScript = `
 local used = tonumber(redis.call('GET', KEYS[1]) or '0')
@@ -66,12 +68,13 @@ export async function reserveQuota(
   premium: boolean,
   reservedMicroUsd: number,
   now = new Date(),
+  dailyLimits: DailyLimits = defaultDailyLimits,
 ): Promise<QuotaDecision> {
   const day = utcDay(now);
   const minute = now.toISOString().slice(0, 16);
   const result = await redisEval(store, reserveScript,
     [`ai:user:${day}:${userId}`, `ai:spend:${day}`, `ai:burst:${minute}:${ipHash}`],
-    [premium ? 25 : 5, reservedMicroUsd, 5_000_000]);
+    [premium ? dailyLimits.premium : dailyLimits.free, reservedMicroUsd, 5_000_000]);
   return (['allowed', 'daily_limit', 'budget_limit', 'burst_limit'] as const)[result] ?? 'budget_limit';
 }
 

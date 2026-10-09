@@ -49,6 +49,7 @@ export const testSettings: AppSettings = {
     serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER',
     openModelBaseUrl: 'OPEN_MODEL_BASE_URL_PLACEHOLDER',
     openModel: 'gpt-oss-20b:free',
+    dailyLimits: { free: 5, premium: 25 },
   },
   telemetry: {
     sentryOrganization: 'SENTRY_ORGANIZATION_PLACEHOLDER',
