@@ -105,3 +105,5 @@ One line per decision. Newest at the bottom.
 | 2026-10-09 | The reminders switch stores only `wantsReminders` and time; permission and scheduled state come from an external store refreshed on foreground | OS state has one source of truth, and the switch reflects what the device currently allows and has scheduled (#81). |
 | 2026-10-09 | Gesture Handler's root lives in `FactoryProvider`; app-specific gestures stay in feature folders using the installed SDK 57 Reanimated/Worklets stack (#67) | Every new app inherits setup; per-frame gesture work stays on the UI thread and settling respects reduced motion. |
 | 2026-10-09 | Add `pnpm perf:maestro <flow>` for one bounded Maestro run with Android FrameTimeline and app CPU metrics from a pinned Perfetto Trace Processor | Repeatable low-end device comparisons without build or upload work in the measurement script (#70). |
+
+- 2026-10-09: Switch Companion (#86/#87) uses a temporary name, slug and package ID in app.settings.ts; AI and analytics on, reminders and payments off; no EAS initialization or device runs in these PRs.
