@@ -1,0 +1,23 @@
+# Deny the Android notification prompt, or run with notification permission already denied.
+appId: ${APP_ID}
+---
+- runFlow: subflows/start.yaml
+- runFlow: subflows/finish-onboarding.yaml
+- tapOn:
+    id: settings-open
+- scrollUntilVisible:
+    element:
+      id: reminders-title
+- tapOn:
+    id: reminders-enabled
+- runFlow:
+    when:
+      visible: '(?i)don.t allow'
+    commands:
+      - tapOn: '(?i)don.t allow'
+- extendedWaitUntil:
+    visible:
+      id: reminders-permission-denied
+    timeout: 10000
+- assertVisible:
+    id: reminders-open-settings

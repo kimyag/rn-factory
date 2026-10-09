@@ -12,6 +12,7 @@ export const tr: Translation<typeof en> = {
   'reminders.time': 'Saat (24 saat biçimi)',
   'reminders.timePlaceholder': '09:00',
   'reminders.enabled': 'Etkinleştir',
+  'reminders.openSettings': 'Ayarları aç',
   'reminders.invalidTime': '00:00 ile 23:59 arasında bir saat girin.',
   'reminders.denied': 'Bildirimler kapalı. Hatırlatıcı almak için cihaz ayarlarından bildirimlere izin verin.',
   'reminders.failed': 'Hatırlatıcı kaydedilemedi. Tekrar deneyin.',
