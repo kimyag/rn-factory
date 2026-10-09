@@ -60,6 +60,10 @@ compatible updates from other channels, so it is not a channel-isolation test.
 ## Workflow
 - One issue, one branch, one PR. The PR says `Closes #<issue>`.
 - Branch: `<type>/<issue-number>-<short-slug>`, e.g. `feat/7-translations`.
+- Never force-push, including with `--force-with-lease`. To update a PR branch
+  with main, merge `origin/main` into it, resolve conflicts, and push normally;
+  when there are no conflicts, `gh pr update-branch <number>` is also allowed.
+- PRs are squash-merged, so merge commits on PR branches are fine.
 - Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `ci:`.
 - Typecheck and lint must pass before a PR is ready.
 - Before opening a PR that changes UI, run the relevant Maestro flows on the device
