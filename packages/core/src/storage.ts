@@ -3,3 +3,4 @@ import 'expo-sqlite/localStorage/install';
 
 export { storedValue } from './stored-value.ts';
 export type { StoredValue, StoredValueOptions } from './stored-value.ts';
+export { z } from 'zod';

@@ -88,6 +88,29 @@ test('preview flows launch the installed app without opening the dev client', ()
   }
 });
 
+test('app-owned flows resolve shared startup and onboarding in development and preview', () => {
+  const temp = mkdtempSync(join(tmpdir(), 'maestro-app-flow-test-'));
+  try {
+    const shared = join(temp, 'shared');
+    const app = join(temp, 'app');
+    mkdirSync(join(shared, 'subflows'), { recursive: true });
+    mkdirSync(app, { recursive: true });
+    writeFileSync(join(shared, 'subflows', 'start.yaml'), 'dev start');
+    writeFileSync(join(shared, 'subflows', 'preview-start.yaml'), 'preview start');
+    writeFileSync(join(shared, 'subflows', 'finish-onboarding.yaml'), 'finish onboarding');
+    writeFileSync(join(app, 'task-cards.yaml'), 'appId: ${APP_ID}\n---\n- runFlow: subflows/start.yaml\n- runFlow: subflows/finish-onboarding.yaml');
+    const flow = { name: 'task-cards', file: join(app, 'task-cards.yaml') };
+    for (const preview of [false, true]) {
+      const output = join(temp, preview ? 'preview' : 'development');
+      const prepared = prepareFlow(flow, shared, app, output, preview);
+      assert.match(readFileSync(prepared.file, 'utf8'), preview ? /subflows\/preview-start\.yaml/ : /subflows\/start\.yaml/);
+      assert.equal(readFileSync(join(output, 'subflows', 'finish-onboarding.yaml'), 'utf8'), 'finish onboarding');
+    }
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+});
+
 test('settings flow selects the active or hidden payment assertions from build configuration', () => {
   const temp = mkdtempSync(join(tmpdir(), 'maestro-settings-test-'));
   try {
