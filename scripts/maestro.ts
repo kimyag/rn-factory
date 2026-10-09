@@ -1,13 +1,14 @@
-// `pnpm maestro [flow ...] [--app template-app] [--lang en] [--theme dark] [--server URL]`
-// Runs Maestro flows on the one Android device connected with adb, against the dev server.
+// `pnpm maestro [flow ...] [--app template-app] [--lang en] [--theme dark] [--server URL] [--preview]`
+// Runs Maestro flows on one Android device against the dev server or an installed preview build.
 // Screenshots go to maestro-screenshots/<app>/<time>/, which git ignores.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
-import { homedir, networkInterfaces } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { homedir, networkInterfaces, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { connectedDevices, devClientLink, flowsIn, maestroArgs, parseArgs, selectFlows } from './maestro-lib.ts';
+import { preparePreviewFlow } from './maestro-flow.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -62,10 +63,17 @@ async function main() {
     fail(`Connect exactly one Android device with USB debugging (adb sees ${devices.length}).`);
   }
 
-  const server = options.server ?? `http://${lanAddress()}:8081`;
-  const status = await fetch(`${server}/status`).then((response) => response.text(), () => '');
-  if (!status.includes('packager-status:running')) {
-    fail(`The dev server is not running at ${server}. Start it: pnpm --filter ${options.app} start`);
+  const server = options.preview ? '' : options.server ?? `http://${lanAddress()}:8081`;
+  if (options.preview) {
+    const installed = spawnSync('adb', ['shell', 'pm', 'path', settings.bundleIds.android], { encoding: 'utf8' });
+    if (!installed.stdout.includes('package:')) {
+      fail(`No installed build for ${settings.bundleIds.android}. Install the app's preview build first.`);
+    }
+  } else {
+    const status = await fetch(`${server}/status`).then((response) => response.text(), () => '');
+    if (!status.includes('packager-status:running')) {
+      fail(`The dev server is not running at ${server}. Start it: pnpm --filter ${options.app} start`);
+    }
   }
 
   const stamp = new Date().toISOString().replace(/\.\d+Z$/, '').replace(/[-:]/g, '').replace('T', '-');
@@ -73,7 +81,7 @@ async function main() {
   mkdirSync(out, { recursive: true });
   const values = {
     appId: settings.bundleIds.android,
-    link: devClientLink(settings.slug, server),
+    link: options.preview ? '' : devClientLink(settings.slug, server),
     server,
     lang: options.lang,
     theme: options.theme,
@@ -81,19 +89,29 @@ async function main() {
 
   const binary = maestroBinary();
   const results: [string, boolean][] = [];
-  // A phone that goes to sleep shows a black screen to Maestro, so keep it awake while
-  // it is charging over USB, and put the setting back afterwards.
-  spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'usb']);
+  const previewFlowDir = options.preview ? mkdtempSync(join(tmpdir(), 'rn-factory-maestro-preview-')) : null;
   try {
-    for (const flow of flows) {
-      console.log(`\n== ${flow.name} (${options.lang}, ${options.theme})`);
-      spawnSync('adb', ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
-      // Maestro saves screenshots in its working directory.
-      const run = spawnSync(binary, maestroArgs(flow, values), { cwd: out, stdio: 'inherit' });
-      results.push([flow.name, run.status === 0]);
+    const runFlows = previewFlowDir === null
+      ? flows
+      : flows.map((flow) => preparePreviewFlow(flow, join(root, 'maestro'), join(appDir, '.maestro'), previewFlowDir));
+    // A phone that goes to sleep shows a black screen to Maestro, so keep it awake while
+    // it is charging over USB, and put the setting back afterwards.
+    spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'usb']);
+    try {
+      for (const flow of runFlows) {
+        console.log(`\n== ${flow.name} (${options.lang}, ${options.theme})`);
+        spawnSync('adb', ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
+        // Maestro saves screenshots in its working directory.
+        const run = spawnSync(binary, maestroArgs(flow, values), { cwd: out, stdio: 'inherit' });
+        results.push([flow.name, run.status === 0]);
+      }
+    } finally {
+      spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'false']);
     }
   } finally {
-    spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'false']);
+    if (previewFlowDir !== null) {
+      rmSync(previewFlowDir, { recursive: true, force: true });
+    }
   }
 
   console.log(`\nScreenshots: ${out}`);
