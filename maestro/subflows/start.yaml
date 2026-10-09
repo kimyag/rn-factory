@@ -5,6 +5,8 @@ appId: ${APP_ID}
 - launchApp:
     clearState: true
     stopApp: true
+    permissions:
+      notifications: unset
 - openLink: ${DEV_CLIENT_LINK}
 # The dev client may show its one-time intro on a fresh install.
 - tapOn:
@@ -25,7 +27,23 @@ appId: ${APP_ID}
 - tapOn:
     text: ${SERVER_URL}
     optional: true
-# The first bundle can take a while.
+# Wait for app content or the intro that overlays it, after the bundle loads.
+- extendedWaitUntil:
+    visible: '(?s)(Skip|.*This is the developer menu.*|Open React Native dev menu)'
+    timeout: 180000
+- tapOn:
+    text: Continue
+    optional: true
+- runFlow:
+    when:
+      visible: 'Open React Native dev menu'
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: Tools button
+          direction: DOWN
+      - tapOn: Tools button
+      - back
 - extendedWaitUntil:
     visible:
       id: onboarding-next

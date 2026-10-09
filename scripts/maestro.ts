@@ -124,9 +124,14 @@ async function main() {
         }
         console.log(`\n== ${flow.name} (${options.lang}, ${options.theme})`);
         spawnSync('adb', ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
-        // Maestro saves screenshots in its working directory.
-        const run = spawnSync(binary, maestroArgs(flow, values), { cwd: out, stdio: 'inherit' });
+        const run = spawnSync(binary, [
+          ...maestroArgs(flow, values), '--test-output-dir', join(out, flow.name),
+        ], { cwd: out, stdio: 'inherit' });
         results.push([flow.name, run.status === 0]);
+        if (results.filter(([, passed]) => !passed).length >= 2) {
+          console.error('Stopped after two failed flows. Remaining flows were not run.');
+          break;
+        }
       }
     } finally {
       spawnSync('adb', ['shell', 'svc', 'power', 'stayon', 'false']);
