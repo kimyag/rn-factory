@@ -15,6 +15,11 @@ Copy the owner/project ID into `app.settings.ts`, then run `pnpm eas:config`
 from the workspace root. Build the iOS simulator dev client from the app folder:
 `pnpm dlx eas-cli@24.9.0 build --profile development --platform ios`.
 
+The placeholder color Mark and Newsreader S are generated from app settings.
+After changing the name or colors, run `pnpm app:assets switch-companion` from the
+workspace root. Final artwork replaces the PNGs at the settings paths with no
+code change; do not regenerate after replacing it manually.
+
 ## Local task data
 
 `src/feature/task-store.ts` stores tasks, dumps, loose ends and the explicit

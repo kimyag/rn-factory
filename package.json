@@ -13,7 +13,9 @@
     "test:ai": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test packages/ai/src/quota.test.ts",
     "maestro": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/maestro.ts",
     "perf:maestro": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/perf-maestro.ts",
-    "assets:brand": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/brand-assets.mjs"
+    "assets:brand": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/brand-assets.mjs",
+    "app:assets": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/app-assets.ts",
+    "test:assets": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/app-assets.test.ts scripts/new-app.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +33,7 @@
   "packageManager": "pnpm@12.8.1",
   "type": "module",
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.2"
   }

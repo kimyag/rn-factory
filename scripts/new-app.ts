@@ -125,7 +125,7 @@ process.stdout.write(`Created apps/${slug} with valid settings.\n`);
 
 const steps: [string, string[]][] = [
   ['Link the new app into the workspace', ['pnpm', 'install']],
-  ['Generate icons and splash from the settings', ['pnpm', 'assets:brand', slug]],
+  ['Generate icons and splash from the settings', ['pnpm', 'app:assets', slug]],
   ['Write eas.json from the settings', ['pnpm', 'eas:config']],
   ['Typecheck the new app', ['pnpm', '--filter', slug, 'typecheck']],
 ];

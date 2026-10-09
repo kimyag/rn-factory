@@ -58,6 +58,22 @@ repository root, run `pnpm typecheck` and `pnpm lint` to check the workspace.
 For a device, install a development build first; see [Expo development
 builds](https://docs.expo.dev/develop/development-builds/introduction/).
 
+## Placeholder artwork
+
+New apps get a color ring-and-dot Mark and their first letter in bundled Newsreader.
+The generator validates the existing app-color contrast rules. It writes 1024×1024
+PNG files at the paths in `app.settings.ts`: opaque iOS icon, transparent Android
+foreground and monochrome mask, house-neutral Android background, and light/dark
+splash images. Adaptive artwork fits inside Android's central 66/108 safe region.
+
+After changing the name or color, run `pnpm app:assets <app-folder-name>`.
+This explicitly overwrites the placeholder files. Final artwork can replace those
+same PNGs without a code change; builds and app startup never regenerate them.
+The template keeps its current images. `@resvg/resvg-js` is pinned in root
+**devDependencies**, used only by scripts; it is absent from app dependencies.
+
+Check generation with `pnpm test:assets`.
+
 ## Maestro flows
 
 Install Maestro and Java 17+, connect one Android phone, then start the app's
