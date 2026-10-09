@@ -59,6 +59,7 @@ compatible updates from other channels, so it is not a channel-isolation test.
 
 ## Workflow
 - One issue, one branch, one PR. The PR says `Closes #<issue>`.
+- PRs always target `main`; no stacked PRs.
 - Branch: `<type>/<issue-number>-<short-slug>`, e.g. `feat/7-translations`.
 - Never force-push, including with `--force-with-lease`. To update a PR branch
   with main, merge `origin/main` into it, resolve conflicts, and push normally;

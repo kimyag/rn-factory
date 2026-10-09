@@ -3,8 +3,20 @@ import type { Translation } from '@factory/app';
 import type { en } from './en.ts';
 
 export const tr: Translation<typeof en> = {
+  'tasks.empty': 'Açık görevleriniz burada görünecek.',
+  'tasks.add': 'Görev ekle',
+  'tasks.title': 'Görev başlığı',
+  'tasks.save': 'Görevi kaydet',
+  'tasks.cancel': 'İptal',
+  'tasks.archive': 'Görevi arşivle',
+  'tasks.archived': 'Görev arşivlendi.',
+  'tasks.undo': 'Geri al',
+  'tasks.previous': 'Önceki görev',
+  'tasks.next': 'Sonraki görev',
+  'tasks.current': 'Geçerli görev',
+  'tasks.position': '{current} / {total}',
+  'tasks.saveError': 'Değişikliğiniz kaydedilemedi. Tekrar deneyin.',
   'feature.title': 'Görevler',
-  'feature.body': 'Görevleriniz burada görünecek.',
   'onboarding.1.title': 'Hoş geldiniz',
   'onboarding.1.body': 'Görev değiştirirken kaldığınız yeri koruyun.',
   'onboarding.2.title': 'Not bırakın',
