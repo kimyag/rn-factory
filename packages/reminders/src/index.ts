@@ -16,6 +16,12 @@ export type ScheduledReminder = {
   body: string | null;
 };
 
+export async function hasReminderPermission(): Promise<boolean> {
+  const notifications = await import('expo-notifications');
+  const current = await notifications.getPermissionsAsync();
+  return current.granted || current.ios?.status === notifications.IosAuthorizationStatus.PROVISIONAL;
+}
+
 const identifierPrefix = 'factory-reminders:';
 
 function identifierFor(key?: string): string {

@@ -28,6 +28,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm test:ai
       - run: node --test packages/screens/src/error-recovery.test.ts
+      - run: node --test packages/screens/src/reminder-switch-state.test.ts
       - run: node --test packages/core/src/eas.test.ts
       - run: node --test packages/core/src/telemetry.test.ts
       - run: node --test packages/core/src/payments-config.test.ts
