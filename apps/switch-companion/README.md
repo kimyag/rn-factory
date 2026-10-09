@@ -1,24 +1,22 @@
 # Switch Companion
 
-Temporary name, store package IDs and URL scheme come from `app.settings.ts`.
-The package name is the workspace selector, and the folder is the scaffold slug.
-AI/analytics configuration remains placeholders; external setup is tracked in #94.
+Temporary display name, store package IDs and URL scheme come from `app.settings.ts`.
+The package name is the workspace selector; the folder is the scaffold slug.
+AI and analytics are enabled with placeholder service configuration tracked in #94.
+Reminders and payments are disabled.
 
-Initialize EAS manually (the scaffold did not initialize it):
+The placeholder Mark and Newsreader S assets are generated from app settings.
+After changing the name or colors, run `pnpm app:assets switch-companion` from the
+workspace root. Final icons and splash artwork can replace the PNGs at those same
+paths without changing code. Do not regenerate after replacing them manually.
+
+The EAS project was initialized manually and is linked only through
+`app.settings.ts`. Regenerate build profiles with `pnpm eas:config` from the
+workspace root. Build the iOS simulator development client from the app folder:
 
 ```bash
-cd apps/switch-companion
-pnpm dlx eas-cli@24.9.0 project:init
+pnpm dlx eas-cli@24.9.0 build --profile development --platform ios
 ```
-
-Copy the owner/project ID into `app.settings.ts`, then run `pnpm eas:config`
-from the workspace root. Build the iOS simulator dev client from the app folder:
-`pnpm dlx eas-cli@24.9.0 build --profile development --platform ios`.
-
-The placeholder color Mark and Newsreader S are generated from app settings.
-After changing the name or colors, run `pnpm app:assets switch-companion` from the
-workspace root. Final artwork replaces the PNGs at the settings paths with no
-code change; do not regenerate after replacing it manually.
 
 ## Local task data
 
@@ -30,7 +28,10 @@ uses the first open task. Unknown future versions and invalid data use the share
 storage fallback. A migrated value is written in version 2 on the next change.
 
 Adding a task selects it. Swiping saves the visible card after native paging
-settles; Previous/Next provide the same choice without a gesture. Archiving
+settles; Previous/Next save the same choice before the pager scrolls. The stored
+current task ID is the single selection source, and selecting it again does not
+publish another snapshot. Horizontal cards and the recycler use an independently
+measured viewport height to prevent layout measurement feedback. Archiving
 retains linked data and selects the nearest remaining card. Undo restores and
 selects the archived task, and remains until the next archive or screen restart.
 No archive confirmation or time limit. These interaction defaults can be changed

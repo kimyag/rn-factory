@@ -29,6 +29,10 @@ export default (context: ConfigContext): ExpoConfig => {
     ios: {
       ...config.ios,
       bundleIdentifier: settings.bundleIds.ios,
+      infoPlist: {
+        ...config.ios?.infoPlist,
+        ITSAppUsesNonExemptEncryption: settings.usesNonExemptEncryption,
+      },
       privacyManifests: {
         ...config.ios?.privacyManifests,
         ...telemetryPrivacyManifest(settings),

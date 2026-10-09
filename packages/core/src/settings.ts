@@ -90,6 +90,7 @@ export const appSettingsSchema = z.strictObject({
         'must be a package name like com.example.app',
       ),
   }),
+  usesNonExemptEncryption: z.boolean().default(false),
   appColor,
   branding,
   fonts: z.strictObject({ title: fontRole, mono: fontRole }),
