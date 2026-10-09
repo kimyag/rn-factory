@@ -12,6 +12,7 @@
     "ai:compare": "node scripts/compare-ai-providers.mjs",
     "test:ai": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test packages/ai/src/quota.test.ts",
     "maestro": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/maestro.ts",
+    "perf:maestro": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/perf-maestro.ts",
     "assets:brand": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/brand-assets.mjs"
   },
   "keywords": [],

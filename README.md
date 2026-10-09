@@ -87,3 +87,9 @@ for setup, options, and flow details.
 See [docs/reminders.md](docs/reminders.md), [docs/ai.md](docs/ai.md),
 [docs/payments.md](docs/payments.md), [docs/native-modules.md](docs/native-modules.md),
 and [docs/maestro.md](docs/maestro.md) for capability details.
+
+To capture frame timing and app CPU for one Maestro flow on an Android 12+
+device, use `pnpm perf:maestro <flow>` with the app's standalone release build
+installed. It runs the flow once without a dev server and writes a Perfetto
+trace and JSON report under the ignored `maestro-screenshots/performance/`
+folder. See [docs/performance.md](docs/performance.md).
