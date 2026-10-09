@@ -5,7 +5,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { connectedDevices, flowsIn, maestroArgs, parseArgs, selectFlows } from './maestro-lib.ts';
-import { releaseFlow, traceCommands, traceConfig, validateAppId } from './perf-maestro-lib.ts';
+import { preparePreviewFlow } from './maestro-flow.ts';
+import { traceCommands, traceConfig, validateAppId } from './perf-maestro-lib.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -82,7 +83,7 @@ async function main() {
   const out = join(root, 'maestro-screenshots', 'performance', options.app, flow.name, stamp);
   mkdirSync(out, { recursive: true });
   const flowDir = mkdtempSync(join(tmpdir(), 'rn-factory-maestro-perf-'));
-  const releaseFlowFile = releaseFlow(flow, sharedDir, appFlowsDir, flowDir);
+  const releaseFlowFile = preparePreviewFlow(flow, sharedDir, appFlowsDir, flowDir).file;
   const key = `rn-factory-${stamp}`;
   const remoteTrace = `/data/misc/perfetto-traces/${key}.pftrace`;
   const trace = join(out, `${flow.name}.pftrace`);

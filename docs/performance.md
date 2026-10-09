@@ -30,10 +30,10 @@ pnpm perf:maestro settings
 pnpm perf:maestro onboarding-pages --app my-app --lang en --theme dark
 ```
 
-Run one flow per command. The runner creates a temporary copy of the flow that
-launches the installed app directly, starts a bounded 180-second Perfetto trace,
-runs Maestro once, then stops and pulls the trace. It does not retry a failed
-flow. Traces and reports go to the ignored
+Run one flow per command. The runner uses the same direct-launch preview startup
+as `pnpm maestro --preview`, starts a bounded 180-second Perfetto trace, runs
+Maestro once, then stops and pulls the trace. It does not retry a failed flow.
+Traces and reports go to the ignored
 `maestro-screenshots/performance/<app>/<flow>/<timestamp>/` directory. Keep
 traces local: they can contain process, package, and system scheduling data.
 
