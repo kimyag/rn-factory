@@ -85,7 +85,10 @@ export async function generateAppAssets(appRoot: string, input: unknown): Promis
   for (const path of paths) {
     await mkdir(dirname(path), { recursive: true });
     const parent = await realpath(dirname(path));
-    if (!parent.startsWith(`${realAppRoot}${sep}assets${sep}`)) throw new Error('Generated image directory escapes app assets.');
+    const realAssetsRoot = resolve(realAppRoot, 'assets');
+    if (parent !== realAssetsRoot && !parent.startsWith(`${realAssetsRoot}${sep}`)) {
+      throw new Error('Generated image directory escapes app assets.');
+    }
   }
   for (const path of paths) {
     const existing = await lstat(path).catch((error: NodeJS.ErrnoException) => {
