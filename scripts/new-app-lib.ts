@@ -98,6 +98,7 @@ export function buildSettings(template: AppSettings, values: NewAppValues, title
   settings.slug = values.slug;
   settings.bundleIds = { ios: values.iosBundleId, android: values.androidBundleId };
   settings.appColor = { light: values.colorLight.toUpperCase(), dark: values.colorDark.toUpperCase() };
+  settings.branding.assets.androidAdaptiveIcon.backgroundImage = './assets/images/android-icon-background.png';
   settings.fonts = { ...settings.fonts, title };
   settings.modules = { ...settings.modules, payments: false, ai: false };
   settings.eas = { ...placeholderValues };
@@ -132,6 +133,7 @@ export function patchSettingsSource(source: string, settings: AppSettings): stri
       ? "    title: 'system',"
       : `    title: {\n      family: ${quote(title.family)},\n      file: ${quote(title.file)},\n      weight: ${title.weight},\n    },`;
   let result = source;
+  result = replaceOnce(result, /^ {8}background: '.*',$/m, `        backgroundImage: ${quote(settings.branding.assets.androidAdaptiveIcon.backgroundImage!)},\n        background: ${quote(settings.branding.assets.androidAdaptiveIcon.background)},`, 'adaptive background');
   result = replaceOnce(result, /^ {2}name: '.*',$/m, `  name: ${quote(settings.name)},`, 'name');
   result = replaceOnce(result, /^ {2}slug: '.*',$/m, `  slug: ${quote(settings.slug)},`, 'slug');
   result = replaceOnce(result, /^ {4}ios: '.*',$/m, `    ios: ${quote(settings.bundleIds.ios)},`, 'iOS bundle ID');
@@ -196,7 +198,7 @@ export async function scaffold(options: { appsRoot: string; templateDir: string;
   const packageFile = join(target, 'package.json');
   const manifest = JSON.parse(readFileSync(packageFile, 'utf8'));
   const scripts = Object.fromEntries(
-    Object.entries<string>(manifest.scripts).map(([key, command]) => [key, command.replace(/(brand-assets\.mjs) template-app$/, `$1 ${values.slug}`)]),
+    Object.entries<string>(manifest.scripts).map(([key, command]) => [key, command.replace(/brand-assets\.mjs template-app$/, `app-assets.ts ${values.slug}`)]),
   );
   writeText(packageFile, `${JSON.stringify({ ...manifest, name: values.slug, scripts }, null, 2)}\n`);
   patchFile(join(target, 'app.json'), /"scheme": "[^"]*"/, `"scheme": "${values.slug}"`, 'URL scheme');
