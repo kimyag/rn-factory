@@ -1,8 +1,8 @@
 import { useText } from '@factory/app';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Button, createStyles, Mark, Screen, Text } from '@factory/ui';
-import { forwardRef, useRef, useState, useSyncExternalStore } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View, type ScrollViewProps } from 'react-native';
+import { forwardRef, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View, type ScrollViewProps, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -122,35 +122,68 @@ function TaskPager({ items, currentId, width, onSelect }: {
   const list = useRef<FlashListRef<Task>>(null);
   const reducedMotion = useReducedMotion();
   const index = Math.max(0, items.findIndex((task) => task.id === currentId));
+  const [height, setHeight] = useState(0);
+  const visibleIndex = useRef(index);
+  const pendingIndex = useRef<number | null>(null);
+  const swiping = useRef(false);
+
+  useEffect(() => {
+    if (height <= 0 || !list.current || (index === visibleIndex.current && pendingIndex.current === null) || index === pendingIndex.current) return;
+    pendingIndex.current = index;
+    swiping.current = false;
+    list.current.scrollToIndex({ index, animated: !reducedMotion });
+    if (reducedMotion) {
+      visibleIndex.current = index;
+      pendingIndex.current = null;
+    }
+  }, [index, height, reducedMotion]);
+
+  function finish(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const next = Math.round(event.nativeEvent.contentOffset.x / width);
+    const task = items[next];
+    if (!task || (pendingIndex.current !== null && next !== pendingIndex.current)) return;
+    visibleIndex.current = next;
+    pendingIndex.current = null;
+    const userSwipe = swiping.current;
+    swiping.current = false;
+    if (userSwipe && task.id !== currentId) onSelect(task.id);
+  }
 
   function move(next: number) {
     const task = items[next];
     if (!task) return;
-    list.current?.scrollToIndex({ index: next, animated: !reducedMotion });
     onSelect(task.id);
   }
 
   return (
     <View style={styles.content}>
-      <FlashList
-        ref={list}
-        testID="task-pager"
-        data={items}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        initialScrollIndex={index}
-        maintainVisibleContentPosition={{ disabled: true }}
-        keyExtractor={(task) => task.id}
-        renderScrollComponent={PagerScroll}
-        renderItem={({ item }) => <TaskCard task={item} width={width} selected={item.id === currentId} />}
-        extraData={currentId}
-        onMomentumScrollEnd={(event) => {
-          const next = Math.round(event.nativeEvent.contentOffset.x / width);
-          const task = items[next];
-          if (task && task.id !== currentId) onSelect(task.id);
-        }}
-      />
+      <View style={styles.pager} onLayout={(event) => setHeight(event.nativeEvent.layout.height)}>
+        {height > 0 && (
+          <FlashList
+            ref={list}
+            style={{ height }}
+            testID="task-pager"
+            data={items}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={index}
+            maintainVisibleContentPosition={{ disabled: true }}
+            keyExtractor={(task) => task.id}
+            renderScrollComponent={PagerScroll}
+            renderItem={({ item }) => <TaskCard task={item} width={width} height={height} selected={item.id === currentId} />}
+            extraData={currentId}
+            onScrollBeginDrag={() => {
+              swiping.current = true;
+              pendingIndex.current = null;
+            }}
+            onScrollEndDrag={(event) => {
+              if (event.nativeEvent.velocity?.x === 0) finish(event);
+            }}
+            onMomentumScrollEnd={finish}
+          />
+        )}
+      </View>
       <Text testID="task-position" variant="mono" accessibilityLiveRegion="polite">
         {t('tasks.position', { current: index + 1, total: items.length })}
       </Text>
@@ -162,11 +195,11 @@ function TaskPager({ items, currentId, width, onSelect }: {
   );
 }
 
-function TaskCard({ task, width, selected }: { task: Task; width: number; selected: boolean }) {
+function TaskCard({ task, width, height, selected }: { task: Task; width: number; height: number; selected: boolean }) {
   const t = useText(text);
   const styles = useStyles();
   return (
-    <View style={[styles.card, { width }]} accessibilityElementsHidden={!selected} importantForAccessibility={selected ? 'auto' : 'no-hide-descendants'}>
+    <View style={[styles.card, { width, height }]} accessibilityElementsHidden={!selected} importantForAccessibility={selected ? 'auto' : 'no-hide-descendants'}>
       <View style={styles.cardHeader}>
         <Mark state={selected ? 'active' : 'empty'} />
         <Text variant="caption">{t('tasks.current')}</Text>
@@ -188,7 +221,7 @@ const useStyles = createStyles((theme) => ({
     borderRadius: theme.radius.corner, padding: theme.spacing.gapWide,
   },
   placeholder: { color: theme.colors.inkMuted },
-  card: { flex: 1, padding: theme.spacing.edge, borderWidth: 1, borderColor: theme.colors.ink, borderRadius: theme.radius.corner },
+  card: { padding: theme.spacing.edge, borderWidth: 1, borderColor: theme.colors.ink, borderRadius: theme.radius.corner },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.gap },
   cardBody: { paddingTop: theme.spacing.edge },
   navigation: { flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.gap },

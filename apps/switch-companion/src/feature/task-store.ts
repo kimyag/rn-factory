@@ -79,6 +79,7 @@ export function createTaskStore(storage: StoredValue<TaskState> = taskStorage())
       save({ ...snapshot, tasks: [...snapshot.tasks, task], currentTaskId: task.id });
     },
     selectTask(taskId: string) {
+      if (snapshot.currentTaskId === taskId) return;
       save({ ...snapshot, currentTaskId: taskId });
     },
     archiveTask(taskId: string, now: number) {

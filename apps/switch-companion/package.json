@@ -52,7 +52,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test ../../scripts/switch-companion.test.ts"
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test ../../scripts/switch-companion.test.ts ../../scripts/switch-companion-pager.test.ts"
   },
   "private": true
 }

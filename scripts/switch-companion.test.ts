@@ -118,3 +118,27 @@ test('blank titles and invalid selections do not overwrite stored state', () => 
   assert.throws(() => store.selectTask('missing'));
   assert.equal(values.get('switchCompanion.tasks'), before);
 });
+
+
+test('external-store feedback selecting the current task settles without another write or notification', () => {
+  const store = createTaskStore();
+  store.addTask('First', 'a', 1);
+  store.addTask('Second', 'b', 2);
+  const before = store.getSnapshot();
+  let notifications = 0;
+  store.subscribe(() => {
+    notifications += 1;
+    assert.ok(notifications < 50, 'Maximum update depth exceeded: selection notification feeds itself');
+    store.selectTask(store.getSnapshot().currentTaskId!);
+  });
+  store.selectTask('b');
+  assert.strictEqual(store.getSnapshot(), before);
+  assert.equal(notifications, 0);
+  store.selectTask('a');
+  assert.equal(notifications, 1);
+  const selected = store.getSnapshot();
+  store.selectTask('a');
+  assert.strictEqual(store.getSnapshot(), selected);
+  assert.equal(notifications, 1);
+  assert.equal(createTaskStore().getSnapshot().currentTaskId, 'a');
+});
