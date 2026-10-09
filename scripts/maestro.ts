@@ -95,12 +95,12 @@ async function main() {
 
   const binary = maestroBinary();
   const results: [string, boolean][] = [];
-  const configuredFlowDir = options.preview || flows.some((flow) => flow.name === 'settings')
+  const configuredFlowDir = options.preview || flows.some((flow) => flow.name === 'settings' || flow.file.startsWith(`${join(appDir, '.maestro')}/`))
     ? mkdtempSync(join(tmpdir(), 'rn-factory-maestro-configured-'))
     : null;
   try {
     const runFlows = flows.map((flow) => {
-      if (configuredFlowDir === null || (!options.preview && flow.name !== 'settings')) {
+      if (configuredFlowDir === null || (!options.preview && flow.name !== 'settings' && !flow.file.startsWith(`${join(appDir, '.maestro')}/`))) {
         return flow;
       }
       return prepareFlow(
