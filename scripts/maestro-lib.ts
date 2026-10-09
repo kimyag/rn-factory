@@ -8,13 +8,14 @@ export type Options = {
   lang: string;
   theme: string;
   server: string | null;
+  preview: boolean;
   names: string[];
 };
 
 const themes = ['system', 'light', 'dark'];
 
 export function parseArgs(args: string[]): Options {
-  const options: Options = { app: 'template-app', lang: 'en', theme: 'dark', server: null, names: [] };
+  const options: Options = { app: 'template-app', lang: 'en', theme: 'dark', server: null, preview: false, names: [] };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i] ?? '';
     if (arg === '--app' || arg === '--lang' || arg === '--theme' || arg === '--server') {
@@ -28,14 +29,19 @@ export function parseArgs(args: string[]): Options {
       } else {
         options[arg.slice(2) as 'app' | 'lang' | 'theme'] = value;
       }
+    } else if (arg === '--preview') {
+      options.preview = true;
     } else if (arg.startsWith('--')) {
-      throw new Error(`Unknown option ${arg}. Options: --app, --lang, --theme, --server`);
+      throw new Error(`Unknown option ${arg}. Options: --app, --lang, --theme, --server, --preview`);
     } else {
       options.names.push(arg);
     }
   }
   if (!themes.includes(options.theme)) {
     throw new Error(`--theme must be one of ${themes.join(', ')}`);
+  }
+  if (options.preview && options.server !== null) {
+    throw new Error('--preview cannot be combined with --server');
   }
   return options;
 }
@@ -67,7 +73,7 @@ export function selectFlows(available: Flow[], names: string[]): Flow[] {
 }
 
 export function devClientLink(slug: string, server: string): string {
-  return `exp+${slug}://expo-development-client/?url=${encodeURIComponent(server)}`;
+  return `exp+${slug}://expo-development-client/?url=${encodeURIComponent(server)}&disableOnboarding=1`;
 }
 
 export function maestroArgs(

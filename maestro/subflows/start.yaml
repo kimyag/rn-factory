@@ -10,6 +10,12 @@ appId: ${APP_ID}
 - tapOn:
     text: Continue
     optional: true
+# Older dev builds may have already opened their menu before processing the launch options.
+- runFlow:
+    when:
+      visible: '(?i).*developer menu.*'
+    commands:
+      - pressKey: back
 # The launcher sometimes ignores the link and shows its server list: open the link again.
 - runFlow:
     when:

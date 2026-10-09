@@ -23,11 +23,18 @@ pnpm maestro                          # every flow
 pnpm maestro settings                 # one flow, by file name
 pnpm maestro settings --lang tr --theme light
 pnpm maestro --app my-app --server http://192.168.1.5:8081
+pnpm maestro --preview settings       # installed preview build; no Metro/dev client
 ```
 
-Each flow clears the app's data first, so it starts like a fresh install and opens the
-app from the dev server through the dev client link. **A run wipes the app's data on the
-phone**: do not run it while someone else is testing there.
+By default each flow clears the app's data first, so it starts like a fresh install and
+opens the app from the dev server through the dev client link. **A run wipes the app's
+data on the phone**: do not run it while someone else is testing there.
+
+`--preview` runs the flow against the installed standalone preview build. It
+does not check or connect to Metro and does not open the development client.
+The runner prepares a temporary flow copy that launches the app directly. Use
+this mode for release-like checks such as performance runs; it does not test
+development-client behavior.
 
 Screenshots go to `maestro-screenshots/<app>/<time>/`, which git ignores. Attach the
 ones that show your change to the PR.
