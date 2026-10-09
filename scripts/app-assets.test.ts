@@ -114,6 +114,16 @@ test('contrast, escaped paths and duplicate paths are rejected before existing i
   });
 });
 
+test('settings may place images directly in the assets folder', async () => {
+  await fixture(async (root, settings) => {
+    const direct = structuredClone(settings);
+    direct.branding.assets.icon = './assets/icon.png';
+    const files = await generateAppAssets(root, direct);
+    assert.ok(files.includes(join(root, 'assets/icon.png')));
+    assert.equal((await readFile(join(root, 'assets/icon.png'))).readUInt32BE(16), assetSize);
+  });
+});
+
 test('the template app keeps every existing asset unchanged', async () => {
   const settings = await loadSettings(join(templateDir, 'app.settings.ts'));
   const { assets } = settings.branding;
