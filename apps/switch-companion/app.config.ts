@@ -20,6 +20,7 @@ export default (context: ConfigContext): ExpoConfig => {
     ...config,
     name: settings.name,
     slug: settings.slug,
+    scheme: settings.slug,
     icon: settings.branding.assets.icon,
     web: {
       ...config.web,

@@ -1,0 +1,61 @@
+import { FactoryProvider, useOnboarding, useTelemetry } from '@factory/app';
+import { PaymentsProvider } from '@factory/payments';
+import { RouteErrorBoundary } from '@factory/screens';
+import { lazy, Suspense } from 'react';
+import { Stack } from 'expo-router';
+
+import settings from '../../app.settings.ts';
+import { fontFiles } from '../fonts.ts';
+
+const AiProvider = lazy(() => import('@factory/ai').then(({ AiProvider: Provider }) => ({ default: Provider })));
+
+export default function RootLayout() {
+  return (
+    <FactoryProvider settings={settings} fontFiles={fontFiles}>
+      <PaymentsProvider>
+        {settings.modules.ai ? (
+          <Suspense fallback={null}>
+            <AiProvider>
+              <AppStack />
+            </AiProvider>
+          </Suspense>
+        ) : (
+          <AppStack />
+        )}
+      </PaymentsProvider>
+    </FactoryProvider>
+  );
+}
+
+function AppStack() {
+  const { completed } = useOnboarding();
+  const { reportCrash } = useTelemetry();
+
+  return (
+    <Stack
+      layout={({ state, navigation, children }) => (
+        <RouteErrorBoundary
+          onError={reportCrash}
+          recoveryKey={state.routes[state.index]?.key ?? ''}
+          onGoToStart={() =>
+            navigation.reset({
+              index: 0,
+              routes: [{ name: completed ? '(feature)' : '(onboarding)/onboarding' }],
+            })
+          }
+        >
+          {children}
+        </RouteErrorBoundary>
+      )}
+    >
+      <Stack.Protected guard={!completed}>
+        <Stack.Screen name="(onboarding)/onboarding" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={completed}>
+        <Stack.Screen name="(feature)" options={{ headerShown: false }} />
+        <Stack.Screen name="(settings)/settings" />
+        <Stack.Screen name="(paywall)/paywall" options={{ presentation: 'modal', headerShown: false }} />
+      </Stack.Protected>
+    </Stack>
+  );
+}

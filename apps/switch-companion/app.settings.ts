@@ -1,11 +1,11 @@
 import type { AppSettings } from '@factory/core';
 
 const settings: AppSettings = {
-  name: 'Template App',
-  slug: 'template-app',
+  name: 'Switch Companion',
+  slug: 'switch-companion',
   bundleIds: {
-    ios: 'com.example.templateapp',
-    android: 'com.example.templateapp',
+    ios: 'com.kimyag.switchcompanion',
+    android: 'com.kimyag.switchcompanion',
   },
   usesNonExemptEncryption: false,
   appColor: {
@@ -18,6 +18,7 @@ const settings: AppSettings = {
       androidAdaptiveIcon: {
         foreground: './assets/images/android-icon-foreground.png',
         monochrome: './assets/images/android-icon-monochrome.png',
+        backgroundImage: './assets/images/android-icon-background.png',
         background: '#F7F6F2',
       },
       splash: {
@@ -42,11 +43,11 @@ const settings: AppSettings = {
   privacyUrl: 'https://example.com/PRIVACY_URL_PLACEHOLDER',
   contactEmail: 'contact-placeholder@example.com',
   modules: {
-    payments: true,
+    payments: false,
     crashReports: true,
     analytics: true,
-    ai: false,
-    reminders: true,
+    ai: true,
+    reminders: false,
   },
   ai: {
     serverUrl: 'AI_EAS_HOSTING_URL_PLACEHOLDER',
@@ -58,7 +59,7 @@ const settings: AppSettings = {
   payments: {
     revenueCatIosApiKey: 'REVENUECAT_IOS_API_KEY_PLACEHOLDER',
     revenueCatAndroidApiKey: 'REVENUECAT_ANDROID_API_KEY_PLACEHOLDER',
-    revenueCatTestStoreApiKey: 'test_jsSFDhNPPhdXxfjqZxgBShRatIJ',
+    revenueCatTestStoreApiKey: 'REVENUECAT_TEST_STORE_API_KEY_PLACEHOLDER',
   },
   telemetry: {
     sentryOrganization: 'SENTRY_ORGANIZATION_PLACEHOLDER',
@@ -69,7 +70,7 @@ const settings: AppSettings = {
   },
   eas: {
     owner: 'kimyag',
-    projectId: '6d5e5f7b-1780-47e0-96e6-fc5bb04cab0d',
+    projectId: '4cecd558-8e61-43da-9671-cda1465b7fee',
   },
   stores: {
     // Placeholders until #14 (Apple developer account).
