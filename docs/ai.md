@@ -83,14 +83,23 @@ transcription and split request consumes one configured daily request.
 
 ## Compare providers
 
-The comparison script sends three synthetic descriptions to both providers
+The comparison script sends three synthetic descriptions to OpenAI and Anthropic
 with the same profile schema. It prints each result, elapsed time, token counts,
-and an estimated USD cost. It does not send the descriptions to the app server
+and an estimated USD cost. Results must pass the server's profile schema; incomplete
+responses are rejected. It does not send the descriptions to the app server
 or store them there.
 
 ```sh
-OPENAI_API_KEY=... ANTHROPIC_API_KEY=... OPENAI_COMPATIBLE_API_KEY=... pnpm ai:compare
+node --env-file=apps/template-app/.env.local scripts/compare-ai-providers.mjs
 ```
+
+Create the gitignored environment file from `.env.ai.example` and replace
+`OPENAI_API_KEY` and `ANTHROPIC_API_KEY` with active credentials. The default
+comparison needs only those two provider keys. To include the compatible provider,
+set `AI_COMPARE_PROVIDERS=openai,anthropic,openai-compatible` and provide its key.
+All selected provider keys and prices are checked before any request is sent.
+Each provider request has a 60-second timeout; errors report HTTP status without
+printing provider response bodies.
 
 Defaults are `gpt-6-luna` and `claude-haiku-4-5-20251001`, using the public
 per-token prices in effect when this script was added. If changing a model,
@@ -101,6 +110,35 @@ also set its benchmark prices in USD per million tokens with
 `OPENAI_COMPATIBLE_OUTPUT_USD_PER_MTOK`. The compatible provider defaults to
 OpenRouter at `https://openrouter.ai/api/v1` with model
 `openai/gpt-oss-20b:free` and zero token prices.
+
+### Template App activation (#59)
+
+Template App remains disabled until its server configuration is ready. The
+approved activation scope is an OpenAI/Anthropic comparison, followed by provider
+selection and EAS Hosting deployment. Missing external credentials are tracked in
+[#108](https://github.com/kimyag/rn-factory/issues/108); RevenueCat account setup
+is tracked in [#16](https://github.com/kimyag/rn-factory/issues/16).
+
+1. Configure the two provider keys in the gitignored Template App environment file
+   and run the comparison above. Choose `AI_PROVIDER` and `AI_MODEL` using its
+   validated results, latency, and estimated costs.
+2. Generate an app-specific random `AI_SIGNING_KEY`, provide a separate Upstash
+   database for Template App's counters, and provide its RevenueCat public key.
+3. Configure the selected provider key, signing key, Upstash URL/token, RevenueCat
+   key, model, and `AI_MODULE_ENABLED=true` as sensitive EAS environment variables.
+4. Once credentials are ready, set `modules.ai: true` for server export in the
+   activation worktree. Export with `pnpm --filter template-app exec expo export
+   --platform web`, then run `eas deploy --environment preview` from
+   `apps/template-app`. Test session creation, structured generation, unauthorized
+   requests, and free/premium quota handling on the preview URL.
+5. After preview passes, configure the production environment and deploy. Set
+   `ai.serverUrl` to the production HTTPS origin, re-export and deploy with that
+   configuration, and verify the production service before making the PR ready.
+   Publish native builds or app updates separately, following the runtime and
+   preview validation rules in `AGENTS.md`.
+
+Do not reuse Switch Companion's signed identities or quota database. Passing
+comparison-script tests does not complete provider comparison or activation.
 
 ### OpenRouter availability and data handling
 
