@@ -55,8 +55,11 @@ function host(reducedMotion = false) {
         };
         case '@factory/app': return { useText: () => (key: string) => key };
         case '@factory/ui': return { Button: 'Button', Mark: 'Mark', Text: 'Text', Screen: 'Screen', createStyles: () => () => ({}) };
-        case '@shopify/flash-list': return { FlashList: 'FlashList' };
-        case 'react-native': return { View: 'View', ScrollView: 'ScrollView', Platform: { OS: 'ios' } };
+        case 'react-native': return { View: 'View', ScrollView: 'ScrollView', FlatList: 'FlatList', Platform: { OS: 'ios' }, AppState: { addEventListener: () => ({ remove() {} }) } };
+        case 'expo-audio': return { useAudioRecorder: () => ({}), AudioModule: {}, RecordingPresets: { HIGH_QUALITY: {} }, useAudioRecorderState: () => ({}) };
+        case 'expo-file-system': return { File: class {} };
+        case 'expo-network': return { useNetworkState: () => ({}) };
+        case '@factory/ai': return { useAi: () => ({}) };
         case 'react-native-reanimated': return { useReducedMotion: () => reducedMotion };
         case 'react-native-gesture-handler': return { Gesture: { Native: () => ({}) }, GestureDetector: 'GestureDetector' };
         case './task-store.ts': return { createTaskStore: () => ({}) };
@@ -79,11 +82,11 @@ test('horizontal recycler waits for an independent measured viewport and bounds 
   const renderer = host();
   const props = { items, currentId: 'a', width: 320, onSelect() {} };
   const first = renderer.render(props);
-  assert.equal(nodes(first.tree).some((node) => node.type === 'FlashList'), false, 'Unbounded recycler can enter a layout-commit feedback loop');
+  assert.equal(nodes(first.tree).some((node) => node.type === 'FlatList'), false, 'Wait until the viewport has an independent measured height');
   const viewport = nodes(first.tree).find((node) => typeof node.props.onLayout === 'function');
   assert.ok(viewport, 'Measure the viewport independently of recycled content');
   (viewport.props.onLayout as (event: unknown) => void)({ nativeEvent: { layout: { height: 480 } } });
-  const list = nodes(renderer.render(props).tree).find((node) => node.type === 'FlashList')!;
+  const list = nodes(renderer.render(props).tree).find((node) => node.type === 'FlatList')!;
   assert.equal((list.props.style as { height: number }).height, 480);
   const card = (list.props.renderItem as (props: unknown) => Node)({ item: items[0] });
   assert.equal(card.props.height, 480);
@@ -100,7 +103,7 @@ test('finished swipes choose once; stored selection scrolls only when the visibl
   const scrolls: number[] = [];
   function render() {
     const frame = renderer.render(props());
-    const list = nodes(frame.tree).find((node) => node.type === 'FlashList')!;
+    const list = nodes(frame.tree).find((node) => node.type === 'FlatList')!;
     (list.props.ref as { current: unknown }).current = { scrollToIndex: ({ index }: { index: number }) => { scrolls.push(index); } };
     frame.commit();
     return list.props as {
@@ -143,7 +146,7 @@ test('accessible navigation saves intent before scrolling and reduced-motion nav
   (viewport.props.onLayout as (event: unknown) => void)({ nativeEvent: { layout: { height: 480 } } });
   function render() {
     const frame = renderer.render(props());
-    const list = nodes(frame.tree).find((node) => node.type === 'FlashList')!;
+    const list = nodes(frame.tree).find((node) => node.type === 'FlatList')!;
     (list.props.ref as { current: unknown }).current = {
       scrollToIndex: ({ index, animated }: { index: number; animated: boolean }) => {
         assert.equal(currentId, items[index].id);

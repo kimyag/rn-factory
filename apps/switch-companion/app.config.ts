@@ -70,6 +70,7 @@ export default (context: ConfigContext): ExpoConfig => {
         },
       ],
       ...fontPlugin(settings.fonts),
+      ['expo-audio', { microphonePermission: 'Allow Switch Companion to record a task note.' }],
       ...sentryPlugin(settings),
       ...(settings.modules.reminders ? ['expo-notifications'] : []),
     ],

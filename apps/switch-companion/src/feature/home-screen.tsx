@@ -1,9 +1,11 @@
 import { useText } from '@factory/app';
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { Button, createStyles, Mark, Screen, Text } from '@factory/ui';
-import { forwardRef, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View, type ScrollViewProps, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useAudioRecorder, AudioModule, RecordingPresets, useAudioRecorderState } from 'expo-audio';
+import { File } from 'expo-file-system';
+import { useNetworkState } from 'expo-network';
+import { useAi } from '@factory/ai';
+import { Button, createStyles, Mark, Screen, Text, useTheme } from '@factory/ui';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { AppState, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, View, type FlatList as FlatListType, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { text } from '@/text';
@@ -13,11 +15,14 @@ const tasks = createTaskStore();
 
 export function HomeScreen() {
   const t = useText(text);
+  const ai = useAi();
+  const network = useNetworkState();
   const styles = useStyles();
   const state = useSyncExternalStore(tasks.subscribe, tasks.getSnapshot, tasks.getSnapshot);
   const [adding, setAdding] = useState(false);
   const [undoId, setUndoId] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const open = state.tasks.filter((task) => task.archivedAt === undefined);
   const [width, setWidth] = useState(0);
 
@@ -58,12 +63,15 @@ export function HomeScreen() {
             </View>
             <Button testID="task-add" title={t('tasks.add')} onPress={() => setAdding(true)} />
             {state.currentTaskId && (
-              <Button testID="task-archive" variant="secondary" title={t('tasks.archive')} onPress={() => act(() => {
-                const id = state.currentTaskId;
-                if (!id) return;
-                tasks.archiveTask(id, Date.now());
-                setUndoId(id);
-              })} />
+              <>
+                <Button testID="task-leave" variant="secondary" title={t('leave.open')} onPress={() => setLeaving(true)} />
+                <Button testID="task-archive" variant="secondary" title={t('tasks.archive')} onPress={() => act(() => {
+                  const id = state.currentTaskId;
+                  if (!id) return;
+                  tasks.archiveTask(id, Date.now());
+                  setUndoId(id);
+                })} />
+              </>
             )}
             {undoId && (
               <View style={styles.undo}>
@@ -78,8 +86,277 @@ export function HomeScreen() {
         )}
         {error && <Text accessibilityRole="alert">{t('tasks.saveError')}</Text>}
       </View>
+      {state.currentTaskId && (
+        <LeaveSheet
+          key={state.currentTaskId}
+          visible={leaving}
+          taskId={state.currentTaskId}
+          onClose={() => setLeaving(false)}
+          ai={ai}
+          online={network.isConnected !== false && network.isInternetReachable !== false}
+        />
+      )}
     </Screen>
   );
+}
+
+type AiApi = ReturnType<typeof useAi>;
+
+function LeaveSheet({ visible, taskId, onClose, ai, online }: { visible: boolean; taskId: string | null; onClose: () => void; ai: AiApi; online: boolean }) {
+  const t = useText(text);
+  const theme = useTheme();
+  const styles = useStyles();
+  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, directory: 'document' });
+  const recorderState = useAudioRecorderState(recorder);
+  const state = useSyncExternalStore(tasks.subscribe, tasks.getSnapshot, tasks.getSnapshot);
+  const [draft, setDraft] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<'transcription' | 'split' | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordingInterrupted, setRecordingInterrupted] = useState(false);
+  const latestDump = state.dumps.filter((dump) => dump.taskId === taskId).at(-1);
+  const activeDumpId = useRef<string | null>(null);
+  const currentDump = latestDump;
+  const mounted = useRef(true);
+  const stopRecordingRef = useRef<(interrupted: boolean) => void>(() => {});
+  const nextDumpId = useRef(0);
+
+  useEffect(() => {
+    if (!recorderState.mediaServicesDidReset || !recording || !taskId || !activeDumpId.current) return;
+    tasks.replacePendingAudio(activeDumpId.current, recorder.uri ?? undefined);
+    tasks.failDump(activeDumpId.current, currentDump?.rawText ?? '');
+    activeDumpId.current = null;
+    setRecording(false);
+    setRecordingInterrupted(true);
+    setError(t('leave.recordingFailed'));
+  }, [recorderState.mediaServicesDidReset, recording, currentDump, taskId, t, recorder]);
+
+  useEffect(() => () => { mounted.current = false; }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (appState) => {
+      if (appState !== 'active' && recording) void stopRecordingRef.current(true);
+    });
+    return () => subscription.remove();
+  }, [recording]);
+
+  async function saveText() {
+    if (!taskId || !draft.trim() || processing) return;
+    const textValue = draft.trim();
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    try {
+      tasks.createPendingDump({ id, taskId, createdAt: Date.now(), rawText: textValue, source: 'text', aiStatus: 'pending' });
+      if (!online) {
+        tasks.failDump(id, textValue);
+        setError(t('leave.networkOffline'));
+        setDraft('');
+        onClose();
+        return;
+      }
+      setProcessing(true);
+      setError(null);
+      setStage('split');
+      await processSplit(ai, id, textValue);
+      setDraft('');
+      onClose();
+    } catch (cause) {
+      setError(ai.message(cause));
+      tasks.failDump(id, textValue);
+    } finally {
+      setProcessing(false);
+      setStage(null);
+    }
+  }
+
+  async function retry() {
+    if (!currentDump || processing) return;
+    const dump = currentDump;
+    activeDumpId.current = dump.id;
+    tasks.retryDump(dump.id);
+    setProcessing(true);
+    setError(null);
+    setStage(dump.rawText ? 'split' : 'transcription');
+    try {
+      if (dump.audioUri) {
+        if (!online) {
+          setError(t('leave.networkOffline'));
+          tasks.failDump(dump.id, dump.rawText);
+          return;
+        }
+        const audio = new File(dump.audioUri);
+        setStage('transcription');
+        const transcript = await ai.transcribe(audio);
+        tasks.setDumpTranscript(dump.id, transcript.text, transcript.language);
+        setStage('split');
+        await processSplit(ai, dump.id, transcript.text, transcript.language);
+        await new File(dump.audioUri).delete();
+        tasks.replacePendingAudio(dump.id, undefined);
+        activeDumpId.current = null;
+      } else {
+        if (!online) {
+          setError(t('leave.networkOffline'));
+          return;
+        }
+        await processSplit(ai, dump.id, dump.rawText, dump.detectedLanguage);
+        activeDumpId.current = null;
+      }
+      onClose();
+    } catch (cause) {
+      const latest = tasks.getSnapshot().dumps.find((item) => item.id === dump.id);
+      tasks.failDump(dump.id, latest?.rawText ?? dump.rawText);
+      setError(ai.message(cause));
+    } finally {
+      setProcessing(false);
+      setStage(null);
+    }
+  }
+
+  async function toggleRecording() {
+    if (!taskId || processing) return;
+    if (recording) {
+      await stopAndSaveRecording(false);
+      return;
+    }
+    void startRecording();
+  }
+
+  async function startRecording() {
+    if (!taskId) return;
+    const createdAt = Date.now();
+    const id = `${createdAt.toString(36)}-${(nextDumpId.current++).toString(36)}`;
+    tasks.createPendingDump({ id, taskId, createdAt, rawText: '', source: 'voice', aiStatus: 'pending' });
+    activeDumpId.current = id;
+    try {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        tasks.failDump(id, '');
+        setError(t('leave.permission'));
+        return;
+      }
+      await AudioModule.setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setRecording(true);
+      setRecordingInterrupted(false);
+      setError(null);
+    } catch {
+      tasks.failDump(id, '');
+      setError(t('leave.recordingFailed'));
+    }
+  }
+
+  const stopAndSaveRecording = async (interrupted: boolean) => {
+    if (!taskId) return;
+    const activeId = activeDumpId.current;
+    const activeDump = activeId ? tasks.getSnapshot().dumps.find((dump) => dump.id === activeId) : undefined;
+    if (!activeDump || activeDump.source !== 'voice' || activeDump.aiStatus !== 'pending') return;
+    try {
+      if (recording) await recorder.stop();
+      setRecording(false);
+      const uri = recorder.uri;
+      if (!uri) throw new Error('recording unavailable');
+      tasks.replacePendingAudio(activeDump.id, uri);
+      if (interrupted) {
+        tasks.failDump(activeDump.id, activeDump.rawText);
+        if (mounted.current) {
+          setRecordingInterrupted(true);
+          setError(t('leave.recordingFailed'));
+        }
+        return;
+      }
+      if (!online) {
+        tasks.failDump(activeDump.id, activeDump.rawText);
+        if (mounted.current) {
+          setError(t('leave.networkOffline'));
+          setRecordingInterrupted(true);
+        }
+        return;
+      }
+      setProcessing(true);
+      setStage('transcription');
+      const transcript = await ai.transcribe(new File(uri));
+      tasks.setDumpTranscript(activeDump.id, transcript.text, transcript.language);
+      setStage('split');
+      await processSplit(ai, activeDump.id, transcript.text, transcript.language);
+      await new File(uri).delete();
+      tasks.replacePendingAudio(activeDump.id, undefined);
+      activeDumpId.current = null;
+      if (mounted.current) {
+        setRecordingInterrupted(false);
+        onClose();
+      }
+    } catch (cause) {
+      const latest = tasks.getSnapshot().dumps.find((dump) => dump.id === activeDump.id);
+      tasks.failDump(activeDump.id, latest?.rawText ?? activeDump.rawText);
+      if (mounted.current) {
+        setRecordingInterrupted(true);
+        setError(ai.message(cause));
+      }
+    } finally {
+      if (mounted.current) {
+        setProcessing(false);
+        setStage(null);
+      }
+    }
+  };
+  useEffect(() => {
+    stopRecordingRef.current = stopAndSaveRecording;
+  });
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[StyleSheet.absoluteFill, styles.sheetBackdrop]}>
+        <View style={styles.sheet}>
+          <Text variant="title">{t('leave.title')}</Text>
+          {error && <Text accessibilityRole="alert">{error}</Text>}
+          {processing && <Text accessibilityLiveRegion="polite">{stage === 'transcription' ? t('leave.transcribing') : t('leave.splitting')}</Text>}
+          {currentDump?.aiStatus === 'failed' ? (
+            <>
+              <Text>{currentDump.rawText || t('leave.failedEmpty')}</Text>
+              <Button testID="leave-retry" title={t('leave.retry')} onPress={() => void retry()} disabled={processing} />
+            </>
+          ) : (
+            <>
+              <TextInput
+                testID="leave-text"
+                accessibilityLabel={t('leave.type')}
+                placeholder={t('leave.placeholder')}
+                placeholderTextColor={theme.colors.inkMuted}
+                style={styles.input}
+                multiline
+                value={draft}
+                onChangeText={setDraft}
+                editable={!processing}
+              />
+              <Button testID="leave-save" title={processing ? t('leave.processing') : t('leave.save')} onPress={() => void saveText()} disabled={!draft.trim() || processing} />
+              <Button testID="leave-record" variant="secondary" title={recording ? t('leave.recording') : t('leave.recordTap')} disabled={processing || (!ai.available && !recording)} onPress={() => void toggleRecording()} />
+              {recording && <Button testID="leave-record-stop" title={t('leave.recordDone')} onPress={() => void toggleRecording()} />}
+              {recordingInterrupted && <Button testID="leave-record-retry" variant="secondary" title={t('leave.retryTranscription')} onPress={() => void retry()} />}
+            </>
+          )}
+          <Button testID="leave-close" variant="secondary" title={t('tasks.cancel')} onPress={onClose} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+async function processSplit(ai: AiApi, dumpId: string, rawText: string, detectedLanguage?: string) {
+  tasks.setDumpRawText(dumpId, rawText);
+  const result = await ai.split(rawText, detectedLanguage);
+  const snapshot = tasks.getSnapshot();
+  const dump = snapshot.dumps.find((item) => item.id === dumpId);
+  if (!dump || dump.aiStatus !== 'pending') return;
+  const now = Date.now();
+  tasks.finishDump(dumpId, {
+    rawText, detectedLanguage,
+    whereIWas: result.whereIWas, nextStep: result.nextStep,
+    looseEnds: result.looseEnds.map((value) => ({
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+      taskId: dump.taskId, dumpId, text: value, status: 'open', updatedAt: now,
+    })),
+  });
 }
 
 function AddTask({ onSave, onCancel }: { onSave: (title: string) => void; onCancel: () => void }) {
@@ -108,18 +385,12 @@ function AddTask({ onSave, onCancel }: { onSave: (title: string) => void; onCanc
   );
 }
 
-// FlashList's scroll view participates in Gesture Handler's native UI-thread paging.
-const PagerScroll = forwardRef<ScrollView, ScrollViewProps>(function PagerScroll(props, ref) {
-  const gesture = Gesture.Native();
-  return <GestureDetector gesture={gesture}><ScrollView {...props} ref={ref} /></GestureDetector>;
-});
-
 function TaskPager({ items, currentId, width, onSelect }: {
   items: Task[]; currentId: string | null; width: number; onSelect: (id: string) => void;
 }) {
   const t = useText(text);
   const styles = useStyles();
-  const list = useRef<FlashListRef<Task>>(null);
+  const list = useRef<FlatListType<Task>>(null);
   const reducedMotion = useReducedMotion();
   const index = Math.max(0, items.findIndex((task) => task.id === currentId));
   const [height, setHeight] = useState(0);
@@ -159,7 +430,7 @@ function TaskPager({ items, currentId, width, onSelect }: {
     <View style={styles.content}>
       <View style={styles.pager} onLayout={(event) => setHeight(event.nativeEvent.layout.height)}>
         {height > 0 && (
-          <FlashList
+          <FlatList
             ref={list}
             style={{ height }}
             testID="task-pager"
@@ -168,9 +439,7 @@ function TaskPager({ items, currentId, width, onSelect }: {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             initialScrollIndex={index}
-            maintainVisibleContentPosition={{ disabled: true }}
             keyExtractor={(task) => task.id}
-            renderScrollComponent={PagerScroll}
             renderItem={({ item }) => <TaskCard task={item} width={width} height={height} selected={item.id === currentId} />}
             extraData={currentId}
             onScrollBeginDrag={() => {
@@ -216,6 +485,8 @@ const useStyles = createStyles((theme) => ({
   pager: { flex: 1 },
   empty: { flex: 1, justifyContent: 'center' },
   editor: { flex: 1, gap: theme.spacing.gapWide },
+  sheetBackdrop: { justifyContent: 'flex-end', backgroundColor: `${theme.colors.ink}66` },
+  sheet: { backgroundColor: theme.colors.paper, padding: theme.spacing.edge, gap: theme.spacing.gapWide, borderTopWidth: 1, borderColor: theme.colors.ink },
   input: {
     ...theme.type.body, color: theme.colors.ink, borderWidth: 1, borderColor: theme.colors.ink,
     borderRadius: theme.radius.corner, padding: theme.spacing.gapWide,

@@ -33,12 +33,12 @@ test('stored tasks and the explicit choice survive a new store instance', () => 
   store.selectTask('a');
   assert.equal(createTaskStore().getSnapshot().currentTaskId, 'a');
   assert.equal(store.getSnapshot().tasks[0].title, 'First');
-  assert.equal(JSON.parse(values.get('switchCompanion.tasks')!).version, 2);
+  assert.equal(JSON.parse(values.get('switchCompanion.tasks')!).version, 3);
 });
 
 test('archive selects the nearest remaining card; undo retains all records', () => {
   const original = { tasks: [first, second], dumps: [dump], looseEnds: [looseEnd], currentTaskId: 'a' };
-  seed(2, original);
+  seed(3, original);
   const store = createTaskStore();
   store.archiveTask('a', 10);
   assert.equal(store.getSnapshot().currentTaskId, 'b');
@@ -59,7 +59,7 @@ test('archive last task clears current choice, and undo restores it', () => {
 });
 
 test('archive a non-current task preserves the user choice', () => {
-  seed(2, { tasks: [first, second], dumps: [], looseEnds: [], currentTaskId: 'b' });
+  seed(3, { tasks: [first, second], dumps: [], looseEnds: [], currentTaskId: 'b' });
   const store = createTaskStore();
   store.archiveTask('a', 5);
   assert.equal(store.getSnapshot().currentTaskId, 'b');
@@ -71,7 +71,7 @@ test('version 1 migration adds a choice, skips archived tasks and keeps relation
   assert.deepEqual(taskStorage().get(), { ...old, currentTaskId: 'b' });
   const store = createTaskStore();
   store.addTask('Third', 'c', 6);
-  assert.equal(JSON.parse(values.get('switchCompanion.tasks')!).version, 2);
+  assert.equal(JSON.parse(values.get('switchCompanion.tasks')!).version, 3);
   assert.equal(createTaskStore().getSnapshot().currentTaskId, 'c');
 });
 
@@ -80,10 +80,49 @@ test('migration preserves an explicit valid choice and handles no open tasks', (
   assert.deepEqual(taskStateSchema.parse(migrateTaskState({ tasks: [], dumps: [], looseEnds: [] }, 1)), emptyTaskState);
 });
 
+test('version 2 migration adds local audio metadata fields without losing dump or task data', () => {
+  const old = { tasks: [first], dumps: [dump], looseEnds: [looseEnd], currentTaskId: 'a' };
+  seed(2, old);
+  const migrated = taskStorage().get();
+  assert.deepEqual(migrated.dumps, [dump]);
+  assert.equal(migrated.currentTaskId, 'a');
+  createTaskStore().addTask('Second', 'b', 3);
+  assert.equal(JSON.parse(values.get('switchCompanion.tasks')!).version, 3);
+});
+
+test('pending dump persists before processing; completion saves transcript and loose ends atomically', () => {
+  const store = createTaskStore();
+  store.addTask('First', 'a', 1);
+  const pending = { id: 'd2', taskId: 'a', createdAt: 2, rawText: '', source: 'voice' as const, aiStatus: 'pending' as const };
+  store.createPendingDump(pending);
+  assert.equal(createTaskStore().getSnapshot().dumps[0]?.aiStatus, 'pending');
+  store.setDumpTranscript('d2', 'Keep the draft in Turkish.', 'Turkish');
+  store.finishDump('d2', {
+    rawText: 'Keep the draft in Turkish.', detectedLanguage: 'Turkish', whereIWas: 'Drafting a plan.', nextStep: 'Review the outline.',
+    looseEnds: [{ id: 'e2', taskId: 'a', dumpId: 'd2', text: 'Check dates.', status: 'open', updatedAt: 3 }],
+  });
+  const restored = createTaskStore().getSnapshot();
+  assert.equal(restored.dumps[0]?.aiStatus, 'done');
+  assert.equal(restored.dumps[0]?.detectedLanguage, 'Turkish');
+  assert.deepEqual(restored.looseEnds.map((end) => end.text), ['Check dates.']);
+});
+
+test('failed dump retains raw input and local audio for retry, then retry enters pending', () => {
+  const store = createTaskStore();
+  store.addTask('First', 'a', 1);
+  store.createPendingDump({ id: 'd3', taskId: 'a', createdAt: 2, rawText: '', source: 'voice', aiStatus: 'pending' });
+  store.replacePendingAudio('d3', 'file:///recording.m4a');
+  store.failDump('d3', 'Recognized words');
+  assert.equal(createTaskStore().getSnapshot().dumps[0]?.rawText, 'Recognized words');
+  assert.equal(createTaskStore().getSnapshot().dumps[0]?.audioUri, 'file:///recording.m4a');
+  store.retryDump('d3');
+  assert.equal(createTaskStore().getSnapshot().dumps[0]?.aiStatus, 'pending');
+});
+
 test('corrupt, future and invalid legacy storage fall back safely', () => {
   values.set('switchCompanion.tasks', '{broken');
   assert.deepEqual(taskStorage().get(), emptyTaskState);
-  seed(3, { tasks: [first], dumps: [], looseEnds: [], currentTaskId: 'a' });
+  seed(4, { tasks: [first], dumps: [], looseEnds: [], currentTaskId: 'a' });
   assert.deepEqual(taskStorage().get(), emptyTaskState);
   seed(1, { tasks: [{ ...first, title: '' }], dumps: [], looseEnds: [] });
   assert.deepEqual(taskStorage().get(), emptyTaskState);

@@ -11,6 +11,7 @@ export const taskSchema = z.object({
 export const dumpSchema = z.object({
   id, taskId: id, createdAt: timestamp, rawText: z.string(),
   whereIWas: z.string().optional(), nextStep: z.string().optional(),
+  detectedLanguage: z.string().optional(), audioUri: z.string().optional(),
   source: z.enum(['voice', 'text']),
   aiStatus: z.enum(['pending', 'done', 'failed']),
 });
@@ -46,7 +47,7 @@ export const emptyTaskState: TaskState = { tasks: [], dumps: [], looseEnds: [], 
 
 // Version 1 had the records but no persisted task choice.
 export function migrateTaskState(value: unknown, fromVersion: number): unknown {
-  if (fromVersion !== 1) return value;
+  if (fromVersion !== 1 && fromVersion !== 2) return value;
   const old = recordsSchema.extend({ currentTaskId: id.nullable().optional() }).parse(value);
   const open = old.tasks.filter((task) => task.archivedAt === undefined);
   return { ...old, currentTaskId: open.find((task) => task.id === old.currentTaskId)?.id ?? open[0]?.id ?? null };
@@ -55,7 +56,7 @@ export function migrateTaskState(value: unknown, fromVersion: number): unknown {
 export function taskStorage() {
   return storedValue({
     key: 'switchCompanion.tasks', schema: taskStateSchema, fallback: emptyTaskState,
-    version: 2, migrate: migrateTaskState,
+    version: 3, migrate: migrateTaskState,
   });
 }
 
@@ -105,6 +106,43 @@ export function createTaskStore(storage: StoredValue<TaskState> = taskStorage())
         }),
         currentTaskId: taskId,
       });
+    },
+    createPendingDump(dump: Dump) {
+      const checked = dumpSchema.parse(dump);
+      save({ ...snapshot, dumps: [...snapshot.dumps, checked] });
+    },
+    replacePendingAudio(dumpId: string, audioUri: string | undefined) {
+      const current = snapshot.dumps.find((dump) => dump.id === dumpId);
+      if (!current || current.aiStatus !== 'pending') return;
+      save({ ...snapshot, dumps: snapshot.dumps.map((dump) => dump.id === dumpId ? { ...dump, audioUri } : dump) });
+    },
+    setDumpTranscript(dumpId: string, rawText: string, detectedLanguage: string) {
+      const current = snapshot.dumps.find((dump) => dump.id === dumpId);
+      if (!current || current.aiStatus !== 'pending') return;
+      save({ ...snapshot, dumps: snapshot.dumps.map((dump) => dump.id === dumpId ? { ...dump, rawText, detectedLanguage } : dump) });
+    },
+    setDumpRawText(dumpId: string, rawText: string) {
+      const current = snapshot.dumps.find((dump) => dump.id === dumpId);
+      if (!current || current.aiStatus !== 'pending') return;
+      save({ ...snapshot, dumps: snapshot.dumps.map((dump) => dump.id === dumpId ? { ...dump, rawText } : dump) });
+    },
+    finishDump(dumpId: string, update: { rawText: string; detectedLanguage?: string; whereIWas: string; nextStep: string; looseEnds: LooseEnd[] }) {
+      const current = snapshot.dumps.find((dump) => dump.id === dumpId);
+      if (!current || current.aiStatus !== 'pending') return;
+      save({
+        ...snapshot,
+        dumps: snapshot.dumps.map((dump) => dump.id === dumpId ? { ...dump, ...update, audioUri: undefined, aiStatus: 'done' } : dump),
+        looseEnds: [...snapshot.looseEnds, ...update.looseEnds.map((end) => looseEndSchema.parse(end))],
+      });
+    },
+    failDump(dumpId: string, rawText: string) {
+      if (!snapshot.dumps.some((dump) => dump.id === dumpId)) return;
+      save({ ...snapshot, dumps: snapshot.dumps.map((dump) => dump.id === dumpId ? { ...dump, rawText, aiStatus: 'failed' } : dump) });
+    },
+    retryDump(dumpId: string) {
+      const current = snapshot.dumps.find((dump) => dump.id === dumpId);
+      if (!current || current.aiStatus !== 'failed') return;
+      save({ ...snapshot, dumps: snapshot.dumps.map((dump) => dump.id === dumpId ? { ...dump, aiStatus: 'pending' } : dump) });
     },
   };
 }
