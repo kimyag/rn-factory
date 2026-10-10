@@ -92,6 +92,21 @@ test('horizontal recycler waits for an independent measured viewport and bounds 
   assert.equal(card.props.height, 480);
 });
 
+test('opens at a saved non-first task with deterministic fixed-width page layout', () => {
+  const renderer = host();
+  const props = { items, currentId: 'b', width: 320, onSelect() {} };
+  const first = renderer.render(props);
+  const viewport = nodes(first.tree).find((node) => typeof node.props.onLayout === 'function')!;
+  (viewport.props.onLayout as (event: unknown) => void)({ nativeEvent: { layout: { height: 480 } } });
+  const list = nodes(renderer.render(props).tree).find((node) => node.type === 'FlatList')!;
+  assert.equal(list.props.initialScrollIndex, 1);
+  const getItemLayout = list.props.getItemLayout as (_data: unknown, index: number) => { length: number; offset: number; index: number };
+  const layout = getItemLayout(items, 1);
+  assert.equal(layout.length, 320);
+  assert.equal(layout.offset, 320);
+  assert.equal(layout.index, 1);
+});
+
 test('finished swipes choose once; stored selection scrolls only when the visible card differs', () => {
   const renderer = host();
   const choices: string[] = [];
