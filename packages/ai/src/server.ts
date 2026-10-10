@@ -115,15 +115,33 @@ async function premiumFor(userId: string, settings: ServerConfig, fetcher: typeo
   return premium;
 }
 
-function requestIp(request: Request): string | null {
+function requestIp(request: Request, env: ServerEnv): string | null {
   const ip = request.headers.get('X-Real-IP');
-  return ip && ip.length <= 64 ? ip : null;
+  if (ip && ip.length <= 64) return ip;
+  if (env.NODE_ENV === 'development' && isLocalDevelopmentRequest(request)) return 'development';
+  return null;
+}
+
+function isLocalDevelopmentRequest(request: Request): boolean {
+  try {
+    const url = new URL(request.url);
+    const host = url.hostname.toLowerCase();
+    const privateIpv4 = /^(?:10|127)\.(?:\d{1,3}\.){2}\d{1,3}$/.test(host)
+      || /^192\.168\.(?:\d{1,3}\.)\d{1,3}$/.test(host)
+      || /^172\.(?:1[6-9]|2\d|3[01])\.(?:\d{1,3}\.)\d{1,3}$/.test(host)
+      || /^169\.254\.(?:\d{1,3}\.)\d{1,3}$/.test(host);
+    const privateIpv6 = /^\[(?:::1|f[cd][\da-f:]*|fe[89ab][\da-f:]*)\]$/i.test(host);
+    const localhost = host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local');
+    return url.protocol === 'http:' && (localhost || privateIpv4 || privateIpv6);
+  } catch {
+    return false;
+  }
 }
 
 export async function handleSession(request: Request, env: ServerEnv = process.env, fetcher: typeof fetch = fetch): Promise<Response> {
   const settings = config(env, fetcher);
   if (!settings) return json({ code: 'unavailable' }, 503);
-  const ip = requestIp(request);
+  const ip = requestIp(request, env);
   if (!ip) return json({ code: 'unavailable' }, 503);
   try {
     if (!await allowSession(settings.store, await hashIp(ip))) return json({ code: 'burst_limit' }, 429);
@@ -136,7 +154,7 @@ export async function handleSession(request: Request, env: ServerEnv = process.e
 export async function handleGenerate(request: Request, env: ServerEnv = process.env, fetcher: typeof fetch = fetch, dailyLimits: DailyLimits = defaultDailyLimits): Promise<Response> {
   const settings = config(env, fetcher);
   if (!settings) return json({ code: 'unavailable' }, 503);
-  const ip = requestIp(request);
+  const ip = requestIp(request, env);
   if (!ip) return json({ code: 'unavailable' }, 503);
   const token = request.headers.get('Authorization')?.replace(/^Bearer /, '') ?? '';
   const userId = await verifySession(settings.secret, token);
@@ -250,8 +268,8 @@ const transcriptionReservationMicroUsd = 1_000_000;
 const transcriptionUsdPerHour = 0.04;
 const splitRequestSchema = z.strictObject({ text: inputSchema, detectedLanguage: z.string().trim().min(1).max(80).optional() });
 
-function authenticatedUser(request: Request) {
-  const ip = requestIp(request);
+function authenticatedUser(request: Request, env: ServerEnv) {
+  const ip = requestIp(request, env);
   const token = request.headers.get('Authorization')?.replace(/^Bearer /, '') ?? '';
   return { ip, token };
 }
@@ -268,7 +286,7 @@ export async function handleTranscribe(
 ): Promise<Response> {
   const settings = config(env, fetcher);
   if (!settings || !settings.groqApiKey) return json({ code: 'unavailable' }, 503);
-  const { ip, token } = authenticatedUser(request);
+  const { ip, token } = authenticatedUser(request, env);
   if (!ip) return json({ code: 'unavailable' }, 503);
   const userId = await verifySession(settings.secret, token);
   if (!userId) return json({ code: 'unauthorized' }, 401);
@@ -312,7 +330,7 @@ export async function handleSplit(
 ): Promise<Response> {
   const settings = config(env, fetcher);
   if (!settings || settings.provider !== 'openai-compatible' || !settings.baseUrl) return json({ code: 'unavailable' }, 503);
-  const { ip, token } = authenticatedUser(request);
+  const { ip, token } = authenticatedUser(request, env);
   if (!ip) return json({ code: 'unavailable' }, 503);
   const userId = await verifySession(settings.secret, token);
   if (!userId) return json({ code: 'unauthorized' }, 401);
