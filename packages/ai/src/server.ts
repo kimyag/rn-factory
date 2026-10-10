@@ -1,6 +1,6 @@
 import { hashIp, issueSession, verifySession } from './identity.ts';
 import { callProvider, type ProviderName } from './provider.ts';
-import { actualMicroUsd, allowSession, defaultDailyLimits, reserveMicroUsd, reserveQuota, resetAt, settleQuota, type DailyLimits, type QuotaStore } from './quota.ts';
+import { actualMicroUsd, allowSession, appScopedQuotaKey, defaultDailyLimits, reserveMicroUsd, reserveQuota, resetAt, settleQuota, type DailyLimits, type QuotaStore } from './quota.ts';
 import { inputSchema, instructions, profileJsonSchema, profileSchema, requestSchema } from './schema.ts';
 import { callGroqTranscription, callOpenRouterSplit } from './dump-providers.ts';
 import { z } from 'zod';
@@ -17,6 +17,7 @@ type ServerConfig = {
   outputRate: number;
   revenueCatKey: string | null;
   groqApiKey: string | null;
+  appSlug: string;
 };
 
 const models = {
@@ -70,6 +71,7 @@ function config(env: ServerEnv, fetcher: typeof fetch): ServerConfig | null {
     provider, apiKey, baseUrl, model, inputRate: rate.inputRate, outputRate: rate.outputRate,
     revenueCatKey: configured(env.REVENUECAT_PUBLIC_API_KEY) ? env.REVENUECAT_PUBLIC_API_KEY : null,
     groqApiKey: configured(env.GROQ_API_KEY) ? env.GROQ_API_KEY : null,
+    appSlug: env.APP_SLUG?.trim() || 'template-app',
   };
 }
 
@@ -96,7 +98,7 @@ async function redis(store: QuotaStore, command: (string | number)[]): Promise<u
 
 async function premiumFor(userId: string, settings: ServerConfig, fetcher: typeof fetch): Promise<boolean> {
   if (!settings.revenueCatKey) return false;
-  const cacheKey = `ai:premium:${userId}`;
+  const cacheKey = appScopedQuotaKey(settings.appSlug, `ai:premium:${userId}`);
   const cached = await redis(settings.store, ['GET', cacheKey]);
   if (cached === '1') return true;
   if (cached === '0') return false;
@@ -144,7 +146,7 @@ export async function handleSession(request: Request, env: ServerEnv = process.e
   const ip = requestIp(request, env);
   if (!ip) return json({ code: 'unavailable' }, 503);
   try {
-    if (!await allowSession(settings.store, await hashIp(ip))) return json({ code: 'burst_limit' }, 429);
+    if (!await allowSession(settings.store, settings.appSlug, await hashIp(ip))) return json({ code: 'burst_limit' }, 429);
     return json(await issueSession(settings.secret));
   } catch {
     return json({ code: 'unavailable' }, 503);
@@ -195,7 +197,7 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
   const now = new Date();
   try {
     const premium = await premiumFor(userId, settings, fetcher);
-    const decision = await reserveQuota(settings.store, userId, await hashIp(ip), premium, reserved, now, dailyLimits);
+    const decision = await reserveQuota(settings.store, userId, await hashIp(ip), premium, reserved, now, dailyLimits, settings.appSlug);
     if (decision !== 'allowed') return json({ code: decision, resetAt: resetAt(now), premium }, 429);
   } catch {
     return json({ code: 'unavailable' }, 503);
@@ -226,11 +228,11 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
     try {
       if (task === 'profile') {
         const result = await profileResult();
-        await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+        await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now, settings.appSlug).catch(() => undefined);
         return json({ result: result.value });
       }
       const result = await callProvider(providerCall);
-      await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+      await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now, settings.appSlug).catch(() => undefined);
       const value = result.text;
       return json({ result: value });
     } catch {
@@ -244,7 +246,7 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
       if (task === 'profile') {
         void profileResult()
           .then(async (result) => {
-            await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+            await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now, settings.appSlug).catch(() => undefined);
             send('done', { result: result.value });
           })
           .catch(() => send('error', { code: 'provider_error' }))
@@ -253,7 +255,7 @@ export async function handleGenerate(request: Request, env: ServerEnv = process.
       }
       void callProvider({ ...providerCall, onDelta: (delta) => send('delta', { text: delta }) })
         .then(async (result) => {
-          await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+          await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now, settings.appSlug).catch(() => undefined);
           send('done', { result: result.text });
         })
         .catch(() => send('error', { code: 'provider_error' }))
@@ -267,6 +269,11 @@ const maxAudioBytes = 25 * 1024 * 1024;
 const transcriptionReservationMicroUsd = 1_000_000;
 const transcriptionUsdPerHour = 0.04;
 const splitRequestSchema = z.strictObject({ text: inputSchema, detectedLanguage: z.string().trim().min(1).max(80).optional() });
+
+function parseFallbackModels(value: string | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  return [...new Set(value.split(',').map((model) => model.trim()).filter(Boolean))];
+}
 
 function authenticatedUser(request: Request, env: ServerEnv) {
   const ip = requestIp(request, env);
@@ -306,7 +313,7 @@ export async function handleTranscribe(
   try {
     premium = await premiumFor(userId, settings, fetcher);
     const decision = await reserveQuota(
-      settings.store, userId, await hashIp(ip), premium, transcriptionReservationMicroUsd, now, dailyLimits,
+      settings.store, userId, await hashIp(ip), premium, transcriptionReservationMicroUsd, now, dailyLimits, settings.appSlug,
     );
     if (decision !== 'allowed') return quotaResponse(decision, premium, now);
   } catch {
@@ -315,7 +322,7 @@ export async function handleTranscribe(
   try {
     const transcript = await callGroqTranscription(audio, settings.groqApiKey, fetcher);
     const actual = Math.ceil(transcript.duration / 3_600 * transcriptionUsdPerHour * 1_000_000);
-    await settleQuota(settings.store, transcriptionReservationMicroUsd, actual, now).catch(() => undefined);
+    await settleQuota(settings.store, transcriptionReservationMicroUsd, actual, now, settings.appSlug).catch(() => undefined);
     return json({ text: transcript.text, language: transcript.language });
   } catch (error) {
     return json({ code: error instanceof Error ? error.message : 'provider_error' }, 502);
@@ -346,7 +353,7 @@ export async function handleSplit(
   let premium: boolean;
   try {
     premium = await premiumFor(userId, settings, fetcher);
-    const decision = await reserveQuota(settings.store, userId, await hashIp(ip), premium, reserved, now, dailyLimits);
+    const decision = await reserveQuota(settings.store, userId, await hashIp(ip), premium, reserved, now, dailyLimits, settings.appSlug);
     if (decision !== 'allowed') return quotaResponse(decision, premium, now);
   } catch {
     return json({ code: 'unavailable' }, 503);
@@ -358,9 +365,11 @@ export async function handleSplit(
       apiKey: settings.apiKey,
       baseUrl: settings.baseUrl,
       model: settings.model,
+      fallbackModels: parseFallbackModels(env.AI_FALLBACK_MODELS),
       fetcher,
     });
-    await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+    await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now, settings.appSlug).catch(() => undefined);
+    if (env.NODE_ENV === 'development') process.stdout.write(`[AI split] model=${result.model}\n`);
     return json(result.result);
   } catch {
     return json({ code: 'provider_error' }, 502);

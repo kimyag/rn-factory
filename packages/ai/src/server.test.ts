@@ -7,16 +7,22 @@ const baseEnv = {
   AI_MODULE_ENABLED: 'true',
   AI_PROVIDER: 'openai-compatible',
   AI_BASE_URL: 'https://openrouter.ai/api/v1',
-  AI_MODEL: 'openrouter/free',
+  AI_MODEL: 'nvidia/nemotron-3-super-120b-a12b:free',
   AI_INPUT_USD_PER_MTOK: '0',
   AI_OUTPUT_USD_PER_MTOK: '0',
   OPENAI_COMPATIBLE_API_KEY: 'test-provider-key',
   AI_SIGNING_KEY: 'test-signing-key',
   UPSTASH_REDIS_REST_URL: 'https://redis.example.com',
   UPSTASH_REDIS_REST_TOKEN: 'test-redis-token',
+  APP_SLUG: 'switch-companion',
 };
 
-const redisStub: typeof fetch = async (_input, _init) => Response.json({ result: 1 });
+const redisStub: typeof fetch = async (_input, init) => {
+  const command = JSON.parse(String(init?.body)) as unknown[];
+  const keys = command.slice(3).filter((entry): entry is string => typeof entry === 'string');
+  assert.ok(keys.every((key) => key.startsWith('switch-companion:')));
+  return Response.json({ result: 1 });
+};
 
 function request(url: string, withIpHeader = false): Request {
   return new Request(`${url}/ai/session`, {
