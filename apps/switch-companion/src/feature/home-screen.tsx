@@ -124,7 +124,7 @@ function LeaveSheet({ visible, taskId, onClose, ai, online }: { visible: boolean
 
   useEffect(() => {
     if (!recorderState.mediaServicesDidReset || !recording || !taskId || !activeDumpId.current) return;
-    tasks.replacePendingAudio(activeDumpId.current, recorder.uri);
+    tasks.replacePendingAudio(activeDumpId.current, recorder.uri ?? undefined);
     tasks.failDump(activeDumpId.current, currentDump?.rawText ?? '');
     activeDumpId.current = null;
     setRecording(false);
