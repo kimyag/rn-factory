@@ -26,6 +26,23 @@ appId: ${APP_ID}
 - assertVisible:
     id: task-current-title
     text: Second task
+- tapOn:
+    id: task-leave
+- tapOn:
+    id: leave-text
+- inputText: Review the prototype after lunch
+- tapOn:
+    id: leave-save
+- assertNotVisible:
+    id: leave-close
+- assertVisible:
+    id: task-dump-not-sorted
+- assertVisible:
+    id: task-dump-raw-text
+    text: Review the prototype after lunch
+- assertVisible:
+    id: task-dump-retry
+- takeScreenshot: task-dump-ai-failed
 - swipe:
     start: 20%, 40%
     end: 80%, 40%

@@ -13,7 +13,7 @@ const source = ts.transpileModule(readFileSync(new URL('../apps/switch-companion
 }).outputText + '\nexports.TaskPager = TaskPager;';
 
 type Node = { type: unknown; props: Record<string, unknown> };
-type Props = { items: { id: string; title: string; createdAt: number }[]; currentId: string; width: number; onSelect: (id: string) => void };
+type Props = { items: { id: string; title: string; createdAt: number }[]; dumps: { id: string; taskId: string; rawText: string; aiStatus: 'pending' | 'done' | 'failed' }[]; currentId: string; width: number; onSelect: (id: string) => void; onRetryDump: (id: string) => void };
 const items = [{ id: 'a', title: 'First', createdAt: 1 }, { id: 'b', title: 'Second', createdAt: 2 }];
 function nodes(value: unknown): Node[] {
   if (Array.isArray(value)) return value.flatMap(nodes);
@@ -63,6 +63,7 @@ function host(reducedMotion = false) {
         case 'react-native-reanimated': return { useReducedMotion: () => reducedMotion };
         case 'react-native-gesture-handler': return { Gesture: { Native: () => ({}) }, GestureDetector: 'GestureDetector' };
         case './task-store.ts': return { createTaskStore: () => ({}) };
+        case './dump-workflow.ts': return { closeThenProcessDump: () => Promise.resolve() };
         case '@/text': return {};
         default: throw new Error(`Unexpected import ${name}`);
       }
@@ -80,7 +81,7 @@ function host(reducedMotion = false) {
 
 test('horizontal recycler waits for an independent measured viewport and bounds every card', () => {
   const renderer = host();
-  const props = { items, currentId: 'a', width: 320, onSelect() {} };
+  const props = { items, dumps: [], currentId: 'a', width: 320, onSelect() {}, onRetryDump() {} };
   const first = renderer.render(props);
   assert.equal(nodes(first.tree).some((node) => node.type === 'FlatList'), false, 'Wait until the viewport has an independent measured height');
   const viewport = nodes(first.tree).find((node) => typeof node.props.onLayout === 'function');
@@ -94,7 +95,7 @@ test('horizontal recycler waits for an independent measured viewport and bounds 
 
 test('opens at a saved non-first task with deterministic fixed-width page layout', () => {
   const renderer = host();
-  const props = { items, currentId: 'b', width: 320, onSelect() {} };
+  const props = { items, dumps: [], currentId: 'b', width: 320, onSelect() {}, onRetryDump() {} };
   const first = renderer.render(props);
   const viewport = nodes(first.tree).find((node) => typeof node.props.onLayout === 'function')!;
   (viewport.props.onLayout as (event: unknown) => void)({ nativeEvent: { layout: { height: 480 } } });
@@ -111,7 +112,7 @@ test('finished swipes choose once; stored selection scrolls only when the visibl
   const renderer = host();
   const choices: string[] = [];
   let currentId = 'a';
-  const props = () => ({ items, currentId, width: 320, onSelect(id: string) { choices.push(id); currentId = id; } });
+  const props = () => ({ items, dumps: [], currentId, width: 320, onSelect(id: string) { choices.push(id); currentId = id; }, onRetryDump() {} });
   const first = renderer.render(props());
   const viewport = nodes(first.tree).find((node) => typeof node.props.onLayout === 'function')!;
   (viewport.props.onLayout as (event: unknown) => void)({ nativeEvent: { layout: { height: 480 } } });
@@ -155,7 +156,7 @@ test('accessible navigation saves intent before scrolling and reduced-motion nav
   const renderer = host(true);
   let currentId = 'a';
   const order: string[] = [];
-  const props = () => ({ items, currentId, width: 320, onSelect(id: string) { currentId = id; order.push(`save:${id}`); } });
+  const props = () => ({ items, dumps: [], currentId, width: 320, onSelect(id: string) { currentId = id; order.push(`save:${id}`); }, onRetryDump() {} });
   const first = renderer.render(props());
   const viewport = nodes(first.tree).find((node) => typeof node.props.onLayout === 'function')!;
   (viewport.props.onLayout as (event: unknown) => void)({ nativeEvent: { layout: { height: 480 } } });

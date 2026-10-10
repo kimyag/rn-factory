@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 
 import { createTaskStore, dumpSchema, emptyTaskState, looseEndSchema, migrateTaskState, taskStateSchema, taskStorage } from '../apps/switch-companion/src/feature/task-store.ts';
+import { closeThenProcessDump } from '../apps/switch-companion/src/feature/dump-workflow.ts';
 
 const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 let values: Map<string, string>;
@@ -147,6 +148,28 @@ test('failed persistence does not publish an unsaved snapshot', () => {
   assert.deepEqual(store.getSnapshot(), emptyTaskState);
   assert.equal(notifications, 0);
   unsubscribe();
+});
+
+test('AI failure happens after the saved dump closes the sheet and preserves the raw note', async () => {
+  const store = createTaskStore();
+  store.addTask('First', 'a', 1);
+  store.createPendingDump({ id: 'd4', taskId: 'a', createdAt: 2, rawText: 'Review the prototype', source: 'text', aiStatus: 'pending' });
+  let sheetClosed = false;
+  let aiStarted = false;
+  const processing = closeThenProcessDump(store, 'd4', () => {
+    assert.equal(store.getSnapshot().dumps[0]?.aiStatus, 'pending');
+    sheetClosed = true;
+  }, async () => {
+    assert.equal(sheetClosed, true, 'the sheet must close before AI starts');
+    aiStarted = true;
+    throw new Error('AI unavailable');
+  });
+
+  assert.equal(sheetClosed, true, 'saving closes the sheet synchronously');
+  await processing;
+  assert.equal(aiStarted, true);
+  assert.equal(store.getSnapshot().dumps[0]?.aiStatus, 'failed');
+  assert.equal(store.getSnapshot().dumps[0]?.rawText, 'Review the prototype');
 });
 
 test('blank titles and invalid selections do not overwrite stored state', () => {
