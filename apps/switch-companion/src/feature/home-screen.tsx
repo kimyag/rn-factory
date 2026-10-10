@@ -439,6 +439,7 @@ function TaskPager({ items, currentId, width, onSelect }: {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             initialScrollIndex={index}
+            getItemLayout={(_, itemIndex) => ({ length: width, offset: width * itemIndex, index: itemIndex })}
             keyExtractor={(task) => task.id}
             renderItem={({ item }) => <TaskCard task={item} width={width} height={height} selected={item.id === currentId} />}
             extraData={currentId}
