@@ -3,10 +3,9 @@ import { useAudioRecorder, AudioModule, RecordingPresets, useAudioRecorderState 
 import { File } from 'expo-file-system';
 import { useNetworkState } from 'expo-network';
 import { useAi } from '@factory/ai';
-import { FlatList, type FlatList as FlatListType } from 'react-native';
 import { Button, createStyles, Mark, Screen, Text, useTheme } from '@factory/ui';
-import { forwardRef, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AppState, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { AppState, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, View, type FlatList as FlatListType, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { text } from '@/text';
@@ -118,21 +117,26 @@ function LeaveSheet({ visible, taskId, onClose, ai, online }: { visible: boolean
   const [recordingInterrupted, setRecordingInterrupted] = useState(false);
   const latestDump = state.dumps.filter((dump) => dump.taskId === taskId).at(-1);
   const activeDumpId = useRef<string | null>(null);
-  const currentDump = state.dumps.find((dump) => dump.id === activeDumpId.current) ?? latestDump;
-  const activeDumpIdForView = currentDump?.id ?? null;
+  const currentDump = latestDump;
+  const mounted = useRef(true);
+  const stopRecordingRef = useRef<(interrupted: boolean) => void>(() => {});
+  const nextDumpId = useRef(0);
 
   useEffect(() => {
-    if (recording && recorderState.mediaServicesDidReset) {
-      setRecording(false);
-      setRecordingInterrupted(true);
-      setError(t('leave.recordingFailed'));
-      if (taskId) void stopAndSaveRecording(true);
-    }
-  }, [recorderState.mediaServicesDidReset, recording, activeDumpIdForView, taskId, t, recorder]);
+    if (!recorderState.mediaServicesDidReset || !recording || !taskId || !activeDumpId.current) return;
+    tasks.replacePendingAudio(activeDumpId.current, recorder.uri);
+    tasks.failDump(activeDumpId.current, currentDump?.rawText ?? '');
+    activeDumpId.current = null;
+    setRecording(false);
+    setRecordingInterrupted(true);
+    setError(t('leave.recordingFailed'));
+  }, [recorderState.mediaServicesDidReset, recording, currentDump, taskId, t, recorder]);
+
+  useEffect(() => () => { mounted.current = false; }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (appState) => {
-      if (appState !== 'active' && recording) void stopAndSaveRecording(true);
+      if (appState !== 'active' && recording) void stopRecordingRef.current(true);
     });
     return () => subscription.remove();
   }, [recording]);
@@ -214,8 +218,14 @@ function LeaveSheet({ visible, taskId, onClose, ai, online }: { visible: boolean
       await stopAndSaveRecording(false);
       return;
     }
-    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    tasks.createPendingDump({ id, taskId, createdAt: Date.now(), rawText: '', source: 'voice', aiStatus: 'pending' });
+    void startRecording();
+  }
+
+  async function startRecording() {
+    if (!taskId) return;
+    const createdAt = Date.now();
+    const id = `${createdAt.toString(36)}-${(nextDumpId.current++).toString(36)}`;
+    tasks.createPendingDump({ id, taskId, createdAt, rawText: '', source: 'voice', aiStatus: 'pending' });
     activeDumpId.current = id;
     try {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
@@ -236,7 +246,7 @@ function LeaveSheet({ visible, taskId, onClose, ai, online }: { visible: boolean
     }
   }
 
-  async function stopAndSaveRecording(interrupted: boolean) {
+  const stopAndSaveRecording = async (interrupted: boolean) => {
     if (!taskId) return;
     const activeId = activeDumpId.current;
     const activeDump = activeId ? tasks.getSnapshot().dumps.find((dump) => dump.id === activeId) : undefined;
@@ -249,14 +259,18 @@ function LeaveSheet({ visible, taskId, onClose, ai, online }: { visible: boolean
       tasks.replacePendingAudio(activeDump.id, uri);
       if (interrupted) {
         tasks.failDump(activeDump.id, activeDump.rawText);
-        setRecordingInterrupted(true);
-        setError(t('leave.recordingFailed'));
+        if (mounted.current) {
+          setRecordingInterrupted(true);
+          setError(t('leave.recordingFailed'));
+        }
         return;
       }
       if (!online) {
         tasks.failDump(activeDump.id, activeDump.rawText);
-        setError(t('leave.networkOffline'));
-        setRecordingInterrupted(true);
+        if (mounted.current) {
+          setError(t('leave.networkOffline'));
+          setRecordingInterrupted(true);
+        }
         return;
       }
       setProcessing(true);
@@ -268,18 +282,27 @@ function LeaveSheet({ visible, taskId, onClose, ai, online }: { visible: boolean
       await new File(uri).delete();
       tasks.replacePendingAudio(activeDump.id, undefined);
       activeDumpId.current = null;
-      setRecordingInterrupted(false);
-      onClose();
+      if (mounted.current) {
+        setRecordingInterrupted(false);
+        onClose();
+      }
     } catch (cause) {
       const latest = tasks.getSnapshot().dumps.find((dump) => dump.id === activeDump.id);
       tasks.failDump(activeDump.id, latest?.rawText ?? activeDump.rawText);
-      setRecordingInterrupted(true);
-      setError(ai.message(cause));
+      if (mounted.current) {
+        setRecordingInterrupted(true);
+        setError(ai.message(cause));
+      }
     } finally {
-      setProcessing(false);
-      setStage(null);
+      if (mounted.current) {
+        setProcessing(false);
+        setStage(null);
+      }
     }
-  }
+  };
+  useEffect(() => {
+    stopRecordingRef.current = stopAndSaveRecording;
+  });
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
