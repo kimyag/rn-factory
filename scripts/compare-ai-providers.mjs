@@ -10,6 +10,7 @@ const compatibleKey = process.env.OPENAI_COMPATIBLE_API_KEY;
 const route = process.env.AI_COMPARE_ROUTE ?? 'direct';
 const routedOpenAiModel = process.env.OPENROUTER_OPENAI_MODEL ?? 'openai/gpt-6-luna';
 const routedAnthropicModel = process.env.OPENROUTER_ANTHROPIC_MODEL ?? 'anthropic/claude-haiku-4.5';
+const requestedFreeModels = process.env.OPENROUTER_FREE_MODELS;
 
 const samples = [
   'Mina led the weekly design review, asked quiet teammates for input, and turned vague feedback into clear next steps. She shared early drafts and adjusted quickly when research contradicted her first idea.',
@@ -140,30 +141,62 @@ try {
   if (route !== 'direct' && route !== 'openrouter') {
     throw new Error('AI_COMPARE_ROUTE must be direct or openrouter.');
   }
-  const providers = (process.env.AI_COMPARE_PROVIDERS ?? 'openai,anthropic').split(',').map((value) => value.trim());
-  if (providers.length < 2 || new Set(providers).size !== providers.length
-    || providers.some((provider) => !Object.hasOwn(rates, provider))) {
-    throw new Error('AI_COMPARE_PROVIDERS must select at least two distinct providers: openai, anthropic, openai-compatible.');
-  }
-  const models = {
-    openai: route === 'openrouter' ? routedOpenAiModel : openAiModel,
-    anthropic: route === 'openrouter' ? routedAnthropicModel : anthropicModel,
-    'openai-compatible': compatibleModel,
-  };
-  const keys = {
-    openai: [openAiKey, 'OPENAI_API_KEY'],
-    anthropic: [anthropicKey, 'ANTHROPIC_API_KEY'],
-    'openai-compatible': [compatibleKey, 'OPENAI_COMPATIBLE_API_KEY'],
-  };
-  const pricing = {};
-  for (const provider of providers) {
-    if (route === 'openrouter') requiredKey(compatibleKey, 'OPENAI_COMPATIBLE_API_KEY');
-    else requiredKey(...keys[provider]);
-    pricing[provider] = rates[provider]();
-  }
-  for (const [index, sample] of samples.entries()) {
-    const results = await Promise.all(providers.map((provider) => compare(provider, models[provider], sample, pricing[provider])));
-    process.stdout.write(`${JSON.stringify({ sample: index + 1, input: sample, results }, null, 2)}\n`);
+  if (requestedFreeModels !== undefined) {
+    if (route !== 'openrouter') throw new Error('Free-model comparison requires AI_COMPARE_ROUTE=openrouter.');
+    requiredKey(compatibleKey, 'OPENAI_COMPATIBLE_API_KEY');
+    const selected = requestedFreeModels.split(',').map((model) => model.trim());
+    if (selected.length < 2 || new Set(selected).size !== selected.length
+      || selected.some((model) => !model.endsWith(':free') && model !== 'openrouter/free')) {
+      throw new Error('OPENROUTER_FREE_MODELS must select at least two distinct free model IDs.');
+    }
+    const response = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new Error(`OpenRouter catalog returned HTTP ${response.status}.`);
+    const catalog = await response.json();
+    for (const id of selected) {
+      const model = catalog.data?.find((entry) => entry.id === id);
+      if (!model || Number(model.pricing?.prompt) !== 0 || Number(model.pricing?.completion) !== 0
+        || !model.supported_parameters?.includes('structured_outputs')) {
+        throw new Error(`${id} is not a currently listed free structured-output model.`);
+      }
+    }
+    let failed = false;
+    for (const [index, sample] of samples.entries()) {
+      const attempts = await Promise.allSettled(selected.map((model) => compare('openai-compatible', model, sample, { input: 0, output: 0 })));
+      const results = attempts.map((attempt, index) => {
+        if (attempt.status === 'fulfilled') return attempt.value;
+        failed = true;
+        return { provider: 'openai-compatible', route, model: selected[index],
+          error: attempt.reason instanceof Error ? attempt.reason.message : 'Comparison failed.' };
+      });
+      process.stdout.write(`${JSON.stringify({ sample: index + 1, input: sample, results }, null, 2)}\n`);
+    }
+    if (failed) process.exitCode = 1;
+  } else {
+    const providers = (process.env.AI_COMPARE_PROVIDERS ?? 'openai,anthropic').split(',').map((value) => value.trim());
+    if (providers.length < 2 || new Set(providers).size !== providers.length
+      || providers.some((provider) => !Object.hasOwn(rates, provider))) {
+      throw new Error('AI_COMPARE_PROVIDERS must select at least two distinct providers: openai, anthropic, openai-compatible.');
+    }
+    const models = {
+      openai: route === 'openrouter' ? routedOpenAiModel : openAiModel,
+      anthropic: route === 'openrouter' ? routedAnthropicModel : anthropicModel,
+      'openai-compatible': compatibleModel,
+    };
+    const keys = {
+      openai: [openAiKey, 'OPENAI_API_KEY'],
+      anthropic: [anthropicKey, 'ANTHROPIC_API_KEY'],
+      'openai-compatible': [compatibleKey, 'OPENAI_COMPATIBLE_API_KEY'],
+    };
+    const pricing = {};
+    for (const provider of providers) {
+      if (route === 'openrouter') requiredKey(compatibleKey, 'OPENAI_COMPATIBLE_API_KEY');
+      else requiredKey(...keys[provider]);
+      pricing[provider] = rates[provider]();
+    }
+    for (const [index, sample] of samples.entries()) {
+      const results = await Promise.all(providers.map((provider) => compare(provider, models[provider], sample, pricing[provider])));
+      process.stdout.write(`${JSON.stringify({ sample: index + 1, input: sample, results }, null, 2)}\n`);
+    }
   }
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

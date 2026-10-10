@@ -113,21 +113,40 @@ OpenRouter at `https://openrouter.ai/api/v1` with model
 
 ### Compare through OpenRouter
 
-The approved route for #59 is OpenRouter, using the key already in Switch
+The approved route for #59 is free OpenRouter models, using the key already in Switch
 Companion's gitignored environment file. The key is read locally; neither the
 file nor the key belongs in git or benchmark output.
 
 ```sh
-AI_COMPARE_ROUTE=openrouter node --env-file=apps/switch-companion/.env.local scripts/compare-ai-providers.mjs
+AI_COMPARE_ROUTE=openrouter OPENROUTER_FREE_MODELS=nvidia/nemotron-3-super-120b-a12b:free,liquid/lfm-2.5-2.6b:free node --env-file=apps/switch-companion/.env.local scripts/compare-ai-providers.mjs
 ```
 
-This mode sends the same samples and strict JSON schema to
-`openai/gpt-6-luna` and `anthropic/claude-haiku-4.5` at OpenRouter's Chat
-Completions endpoint. It requires only `OPENAI_COMPATIBLE_API_KEY`; no direct
-OpenAI or Anthropic keys are used. Results identify the model developer and the
-OpenRouter route, validate against the server's profile schema, and use
-OpenRouter's reported token counts. Provider routing requires support for the
-structured-output parameters.
+Free mode verifies that all selected IDs appear in OpenRouter's live catalog
+with zero input/output pricing and structured-output support before inference.
+It sends the same samples and strict schema through OpenRouter, using only
+`OPENAI_COMPATIBLE_API_KEY`. Results report token counts, latency, and zero
+estimated token cost. A model failure is recorded without discarding successful
+results from the other model; any failure makes the command exit unsuccessfully.
+There are no paid-model fallbacks.
+
+The [live comparison results](./ai-comparison.json) on 2026-10-10 selected
+`nvidia/nemotron-3-super-120b-a12b:free`:
+
+| Model | Valid profiles | Observed outcome | Estimated token cost |
+| --- | --- | --- | --- |
+| NVIDIA Nemotron 3 Super 120B A12B free | 3/3 | 2.5–10.9 seconds; 262 input and 2,060 output tokens | $0 |
+| Liquid LFM 2.5 2.6B free | 1/3 | Two truncated responses at the 1,500-token cap; successful sample took 2.5 seconds | $0 |
+
+This is a small synthetic comparison, not a broad quality or availability guarantee.
+The command exits with status 1 because Liquid failed two samples; the selected
+Nemotron model passed all three. Free endpoints have provider rate limits and
+availability constraints.
+
+### Paid OpenAI/Anthropic comparison
+
+With `AI_COMPARE_ROUTE=openrouter` and no `OPENROUTER_FREE_MODELS`, the script
+compares `openai/gpt-6-luna` and `anthropic/claude-haiku-4.5` through OpenRouter.
+This mode requires paid-model access. Direct OpenAI or Anthropic keys are not used.
 
 On 2026-10-10, the [OpenRouter catalog](https://openrouter.ai/api/v1/models)
 listed input/output prices of $0.10/$0.50 per million tokens for GPT-6 Luna
@@ -139,27 +158,23 @@ model's `OPENROUTER_OPENAI_INPUT_USD_PER_MTOK` /
 `OPENROUTER_ANTHROPIC_INPUT_USD_PER_MTOK` /
 `OPENROUTER_ANTHROPIC_OUTPUT_USD_PER_MTOK` values.
 
-The first live comparison on 2026-10-10 failed with HTTP 403. The available
-key's metadata reported a $0 spending limit and free-tier access. Paid-model
-access must be configured before comparing these two models; a successful
-authentication check alone does not establish model access.
-
 ### Template App activation (#59)
 
 Template App remains disabled until its server configuration is ready. The
-approved activation scope is an OpenAI/Anthropic comparison through OpenRouter,
+approved activation scope is a free-model comparison through OpenRouter,
 followed by model selection and EAS Hosting deployment. External setup is tracked in
 [#108](https://github.com/kimyag/rn-factory/issues/108); RevenueCat account setup
 is tracked in [#16](https://github.com/kimyag/rn-factory/issues/16).
 
-1. Enable paid-model access on the existing OpenRouter key and run the routed
-   comparison above. Choose a model using its validated results, latency, and
-   estimated costs. Set `AI_PROVIDER=openai-compatible`,
-   `AI_BASE_URL=https://openrouter.ai/api/v1`, the selected `AI_MODEL`, and
-   its input/output USD-per-million-token rates. Set Template App's public
+1. The selected model is `nvidia/nemotron-3-super-120b-a12b:free`. Set
+   `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=https://openrouter.ai/api/v1`,
+   `AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free`, and both
+   `AI_INPUT_USD_PER_MTOK` / `AI_OUTPUT_USD_PER_MTOK` to zero. Set Template App's public
    `ai.openModelBaseUrl` and `ai.openModel` to the same base URL and model.
-2. Generate an app-specific random `AI_SIGNING_KEY`, provide a separate Upstash
-   database for Template App's counters, and provide its RevenueCat public key.
+2. Generate an app-specific random `AI_SIGNING_KEY` and configure Upstash so
+   Template App's counters are isolated from Switch Companion's. Premium
+   verification requires its RevenueCat public key; free access can be activated
+   separately if premium setup is deferred.
 3. Configure `OPENAI_COMPATIBLE_API_KEY`, signing key, Upstash URL/token, RevenueCat
    key, model, and `AI_MODULE_ENABLED=true` as sensitive EAS environment variables.
 4. Once credentials are ready, set `modules.ai: true` for server export in the
@@ -173,7 +188,7 @@ is tracked in [#16](https://github.com/kimyag/rn-factory/issues/16).
    Publish native builds or app updates separately, following the runtime and
    preview validation rules in `AGENTS.md`.
 
-Do not reuse Switch Companion's signed identities or quota database. Passing
+Keep signed identities and quota counters isolated across apps. Passing
 comparison-script tests does not complete provider comparison or activation.
 
 ### OpenRouter availability and data handling

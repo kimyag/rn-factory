@@ -8,6 +8,12 @@ const mock = `
 import assert from 'node:assert/strict';
 const calls = [];
 globalThis.fetch = async (url, options) => {
+  if (url === 'https://openrouter.ai/api/v1/models') {
+    return Response.json({ data: ['test/one:free', 'test/two:free'].map(id => ({
+      id, pricing: { prompt: process.env.MOCK_CATALOG_PAID ? '0.001' : '0', completion: '0' },
+      supported_parameters: ['structured_outputs'],
+    })) });
+  }
   const body = JSON.parse(options.body);
   const provider = url.includes('api.openai.com') ? 'openai'
     : url.includes('api.anthropic.com') ? 'anthropic'
@@ -15,6 +21,7 @@ globalThis.fetch = async (url, options) => {
   assert.ok(provider, 'unexpected provider URL');
   assert.ok(options.signal);
   calls.push({ provider, input: body.input ?? body.messages.at(-1).content });
+  if (process.env.MOCK_ONE_FAILURE && body.model === 'test/one:free') return new Response('', { status: 503 });
   const profile = process.env.MOCK_INVALID ? { summary: 'Missing fields' }
     : { summary: 'Observed behavior', strengths: ['Clear notes'], workingStyle: 'Collaborative', growthAreas: [] };
   const text = JSON.stringify(profile);
@@ -92,6 +99,45 @@ test('OpenRouter compares OpenAI and Anthropic models with one key and routed to
     ]);
     assert.equal(row.results[0].estimatedUsd, 0.00011);
     assert.equal(row.results[1].estimatedUsd, 0.0011);
+  }
+});
+
+test('free comparison verifies catalog prices, compares both models, and reports zero token cost', () => {
+  const result = run({ AI_COMPARE_ROUTE: 'openrouter', OPENROUTER_FREE_MODELS: 'test/one:free,test/two:free',
+    OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', OPENAI_COMPATIBLE_API_KEY: 'test-compatible' });
+  assert.equal(result.status, 0, result.stderr);
+  const rows = result.stdout.trim().split(/\n(?=\{)/).map((row) => JSON.parse(row));
+  assert.equal(rows.length, 3);
+  for (const row of rows) {
+    assert.deepEqual(row.results.map(({ model }) => model), ['test/one:free', 'test/two:free']);
+    assert.ok(row.results.every(({ estimatedUsd }) => estimatedUsd === 0));
+  }
+});
+
+test('free comparison refuses paid or unlisted models before inference', () => {
+  for (const extra of [
+    { MOCK_CATALOG_PAID: '1' },
+    { OPENROUTER_FREE_MODELS: 'test/one:free,test/missing:free' },
+    { OPENROUTER_FREE_MODELS: 'test/one:free,test/paid' },
+  ]) {
+    const result = run({ AI_COMPARE_ROUTE: 'openrouter', OPENROUTER_FREE_MODELS: 'test/one:free,test/two:free',
+      OPENAI_COMPATIBLE_API_KEY: 'test-compatible', ...extra });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /free model IDs|free structured-output model/);
+  }
+});
+
+test('one failing free endpoint preserves the other model results and exits unsuccessfully', () => {
+  const result = run({ AI_COMPARE_ROUTE: 'openrouter', OPENROUTER_FREE_MODELS: 'test/one:free,test/two:free',
+    OPENAI_COMPATIBLE_API_KEY: 'test-compatible', MOCK_ONE_FAILURE: '1' });
+  assert.equal(result.status, 1);
+  const rows = result.stdout.trim().split(/\n(?=\{)/).map((row) => JSON.parse(row));
+  assert.equal(rows.length, 3);
+  for (const row of rows) {
+    assert.match(row.results[0].error, /HTTP 503/);
+    assert.equal(row.results[1].estimatedUsd, 0);
+    assert.ok(row.results[1].profile);
   }
 });
 
