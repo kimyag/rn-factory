@@ -4,6 +4,8 @@ export type QuotaStore = { url: string; token: string; fetcher?: typeof fetch };
 export type QuotaDecision = 'allowed' | 'daily_limit' | 'budget_limit' | 'burst_limit';
 export type DailyLimits = { free: number; premium: number };
 export const defaultDailyLimits: DailyLimits = { free: 5, premium: 25 };
+const appKeyPrefix = 'switch-companion';
+export const appScopedQuotaKey = (key: string): string => `${appKeyPrefix}:${key}`;
 
 const reserveScript = `
 local used = tonumber(redis.call('GET', KEYS[1]) or '0')
@@ -58,7 +60,7 @@ export function actualMicroUsd(usage: Usage, inputRate: number, outputRate: numb
 }
 
 export async function allowSession(store: QuotaStore, ipHash: string, now = new Date()): Promise<boolean> {
-  return await redisEval(store, sessionScript, [`ai:session:${utcDay(now)}:${ipHash}`], []) === 1;
+  return await redisEval(store, sessionScript, [appScopedQuotaKey(`ai:session:${utcDay(now)}:${ipHash}`)], []) === 1;
 }
 
 export async function reserveQuota(
@@ -73,7 +75,7 @@ export async function reserveQuota(
   const day = utcDay(now);
   const minute = now.toISOString().slice(0, 16);
   const result = await redisEval(store, reserveScript,
-    [`ai:user:${day}:${userId}`, `ai:spend:${day}`, `ai:burst:${minute}:${ipHash}`],
+    [appScopedQuotaKey(`ai:user:${day}:${userId}`), appScopedQuotaKey(`ai:spend:${day}`), appScopedQuotaKey(`ai:burst:${minute}:${ipHash}`)],
     [premium ? dailyLimits.premium : dailyLimits.free, reservedMicroUsd, 5_000_000]);
   return (['allowed', 'daily_limit', 'budget_limit', 'burst_limit'] as const)[result] ?? 'budget_limit';
 }
@@ -81,6 +83,6 @@ export async function reserveQuota(
 export async function settleQuota(store: QuotaStore, reserved: number, actual: number, now = new Date()): Promise<void> {
   const difference = actual - reserved;
   if (difference !== 0) {
-    await redisEval(store, `return redis.call('INCRBY', KEYS[1], ARGV[1])`, [`ai:spend:${utcDay(now)}`], [difference]);
+    await redisEval(store, `return redis.call('INCRBY', KEYS[1], ARGV[1])`, [appScopedQuotaKey(`ai:spend:${utcDay(now)}`)], [difference]);
   }
 }

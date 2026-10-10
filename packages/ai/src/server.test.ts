@@ -7,7 +7,7 @@ const baseEnv = {
   AI_MODULE_ENABLED: 'true',
   AI_PROVIDER: 'openai-compatible',
   AI_BASE_URL: 'https://openrouter.ai/api/v1',
-  AI_MODEL: 'openrouter/free',
+  AI_MODEL: 'nvidia/nemotron-3-super-120b-a12b:free',
   AI_INPUT_USD_PER_MTOK: '0',
   AI_OUTPUT_USD_PER_MTOK: '0',
   OPENAI_COMPATIBLE_API_KEY: 'test-provider-key',

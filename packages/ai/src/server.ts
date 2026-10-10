@@ -1,6 +1,6 @@
 import { hashIp, issueSession, verifySession } from './identity.ts';
 import { callProvider, type ProviderName } from './provider.ts';
-import { actualMicroUsd, allowSession, defaultDailyLimits, reserveMicroUsd, reserveQuota, resetAt, settleQuota, type DailyLimits, type QuotaStore } from './quota.ts';
+import { actualMicroUsd, allowSession, appScopedQuotaKey, defaultDailyLimits, reserveMicroUsd, reserveQuota, resetAt, settleQuota, type DailyLimits, type QuotaStore } from './quota.ts';
 import { inputSchema, instructions, profileJsonSchema, profileSchema, requestSchema } from './schema.ts';
 import { callGroqTranscription, callOpenRouterSplit } from './dump-providers.ts';
 import { z } from 'zod';
@@ -96,7 +96,7 @@ async function redis(store: QuotaStore, command: (string | number)[]): Promise<u
 
 async function premiumFor(userId: string, settings: ServerConfig, fetcher: typeof fetch): Promise<boolean> {
   if (!settings.revenueCatKey) return false;
-  const cacheKey = `ai:premium:${userId}`;
+  const cacheKey = appScopedQuotaKey(`ai:premium:${userId}`);
   const cached = await redis(settings.store, ['GET', cacheKey]);
   if (cached === '1') return true;
   if (cached === '0') return false;
@@ -361,6 +361,7 @@ export async function handleSplit(
       fetcher,
     });
     await settleQuota(settings.store, reserved, actualMicroUsd(result.usage, settings.inputRate, settings.outputRate), now).catch(() => undefined);
+    if (env.NODE_ENV === 'development') process.stdout.write(`[AI split] model=${result.model}\n`);
     return json(result.result);
   } catch {
     return json({ code: 'provider_error' }, 502);
