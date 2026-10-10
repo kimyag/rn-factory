@@ -10,7 +10,7 @@
     "eas:config": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/eas-config.ts",
     "new-app": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/new-app.ts",
     "ai:compare": "node scripts/compare-ai-providers.mjs",
-    "test:ai": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test packages/ai/src/quota.test.ts",
+    "test:ai": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test packages/ai/src/quota.test.ts packages/ai/src/client.test.ts",
     "maestro": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/maestro.ts",
     "perf:maestro": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/perf-maestro.ts",
     "assets:brand": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/brand-assets.mjs",

@@ -18,6 +18,7 @@
   "peerDependencies": {
     "@types/react": "*",
     "expo": "*",
+    "expo-constants": "*",
     "react": "*",
     "react-native": "*"
   }

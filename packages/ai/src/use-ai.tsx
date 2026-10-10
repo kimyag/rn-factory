@@ -1,11 +1,11 @@
 import { useText, useAppSettings } from '@factory/app';
-import { isPlaceholder } from '@factory/core';
 import { usePayments, usePremium } from '@factory/payments';
 import { Button, Text, useTheme } from '@factory/ui';
 import { createContext, use, useRef, useState, type ReactNode } from 'react';
+import Constants from 'expo-constants';
 import { Modal, StyleSheet, View } from 'react-native';
 
-import { AiError, createAiClient, type AiErrorCode, type DumpSplit, type Transcription } from './client.ts';
+import { AiError, createAiClient, resolveAiServerUrl, type AiErrorCode, type DumpSplit, type Transcription } from './client.ts';
 import { text } from './text/index.ts';
 import type { TeammateProfile } from './schema.ts';
 
@@ -27,16 +27,22 @@ export function AiProvider({ children }: { children: ReactNode }) {
   const premium = usePremium();
   const t = useText(text);
   const theme = useTheme();
-  const [client] = useState(() =>
-    settings.modules.ai && !isPlaceholder(settings.ai.serverUrl)
+  const [client] = useState(() => {
+    const serverUrl = resolveAiServerUrl(settings.ai.serverUrl, Constants.expoConfig?.hostUri, __DEV__);
+    return settings.modules.ai && serverUrl
       ? createAiClient({
-        serverUrl: settings.ai.serverUrl,
+        serverUrl,
         openModelBaseUrl: settings.ai.openModelBaseUrl,
         openModel: settings.ai.openModel,
         identify: payments.identify,
+        allowInsecureHttp: __DEV__,
+        onRequest: __DEV__ ? (path, status) => {
+          // eslint-disable-next-line no-console -- Development diagnostics contain only a fixed route and HTTP status.
+          console.info(`[AI request] ${path} ${status}`);
+        } : undefined,
       })
-      : null,
-  );
+      : null;
+  });
   const resolver = useRef<((accepted: boolean) => void) | null>(null);
   const [visible, setVisible] = useState(false);
   const cardStyle = {

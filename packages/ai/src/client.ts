@@ -1,5 +1,4 @@
 import { storedValue } from '@factory/core/storage';
-import { fetch as expoFetch } from 'expo/fetch';
 import { z } from 'zod';
 
 import { dumpSplitSchema } from './dump-providers.ts';
@@ -31,7 +30,27 @@ type ClientOptions = {
   openModelBaseUrl: string;
   openModel: string;
   identify?: (userId: string) => Promise<void>;
+  allowInsecureHttp?: boolean;
+  onRequest?: (path: string, status: number | 'network-error') => void;
   fetcher?: typeof fetch;
+};
+
+export function resolveAiServerUrl(serverUrl: string, hostUri: string | undefined, development: boolean): string | null {
+  if (development && hostUri) {
+    try {
+      const host = hostUri.includes('://') ? hostUri : `http://${hostUri}`;
+      const parsed = new URL(host);
+      if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname) return parsed.origin;
+    } catch {
+      // An invalid development host falls back to the configured server URL.
+    }
+  }
+  return serverUrl.endsWith('_PLACEHOLDER') ? null : serverUrl.replace(/\/$/, '');
+}
+
+const expoFetch: typeof fetch = async (input, init) => {
+  const module = await import('expo/fetch');
+  return module.fetch(input, init);
 };
 
 function dataObject(value: unknown): Record<string, unknown> {
@@ -80,13 +99,30 @@ async function readStream(response: Response, onDelta: (delta: string) => void):
   return result;
 }
 
-export function createAiClient({ serverUrl, openModelBaseUrl, openModel, identify, fetcher = expoFetch as typeof fetch }: ClientOptions) {
+export function createAiClient({ serverUrl, openModelBaseUrl, openModel, identify, allowInsecureHttp = false, onRequest, fetcher = expoFetch as typeof fetch }: ClientOptions) {
   const base = serverUrl.replace(/\/$/, '');
+  async function request(path: string, init: RequestInit): Promise<Response> {
+    try {
+      const response = await fetcher(`${base}${path}`, init);
+      onRequest?.(path, response.status);
+      return response;
+    } catch (error) {
+      onRequest?.(path, 'network-error');
+      throw error;
+    }
+  }
+
+  function assertServerUrl() {
+    const secure = base.startsWith('https://');
+    const developmentHttp = allowInsecureHttp && base.startsWith('http://');
+    if ((!secure && !developmentHttp) || base.endsWith('_PLACEHOLDER')) throw new AiError('unavailable');
+  }
+
   async function session(): Promise<Session> {
-    if (!base.startsWith('https://') || base.endsWith('_PLACEHOLDER')) throw new AiError('unavailable');
+    assertServerUrl();
     let value = savedSession.get();
     if (!value) {
-      const response = await fetcher(`${base}/ai/session`, { method: 'POST' });
+      const response = await request('/ai/session', { method: 'POST' });
       if (!response.ok) throw asError(await response.json());
       value = sessionSchema.parse(await response.json());
       savedSession.set(value);
@@ -99,7 +135,7 @@ export function createAiClient({ serverUrl, openModelBaseUrl, openModel, identif
     const text = inputSchema.safeParse(input);
     if (!text.success) throw new AiError(input.length > 32_000 ? 'too_long' : 'invalid_request');
     const current = await session();
-    const response = await fetcher(`${base}/ai/generate`, {
+    const response = await request('/ai/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${current.token}` },
       body: JSON.stringify({
@@ -118,7 +154,7 @@ export function createAiClient({ serverUrl, openModelBaseUrl, openModel, identif
     const current = await session();
     const headers = new Headers({ Authorization: `Bearer ${current.token}` });
     if (contentType) headers.set('Content-Type', contentType);
-    const response = await fetcher(`${base}/ai/${path}`, { method: 'POST', headers, body });
+    const response = await request(`/ai/${path}`, { method: 'POST', headers, body });
     if (response.status === 401) {
       savedSession.set(null);
       throw new AiError('unauthorized');
