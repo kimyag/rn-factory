@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-10",
+  "route": "openrouter",
+  "selectedModel": "nvidia/nemotron-3-super-120b-a12b:free",
+  "samples": [
+    {
+      "sample": 1,
+      "input": "Mina led the weekly design review, asked quiet teammates for input, and turned vague feedback into clear next steps. She shared early drafts and adjusted quickly when research contradicted her first idea.",
+      "results": [
+        {
+          "provider": "openai-compatible",
+          "route": "openrouter",
+          "model": "nvidia/nemotron-3-super-120b-a12b:free",
+          "elapsedMs": 4625,
+          "usage": {
+            "input": 85,
+            "output": 503
+          },
+          "estimatedUsd": 0,
+          "profile": {
+            "summary": "Mina demonstrates observable behaviors in design leadership: facilitating inclusive input gathering by actively seeking contributions from quiet teammates during reviews; synthesizing ambiguous feedback into specific action items; practicing iterative work sharing through early draft distribution; and adapting plans rapidly when new research contradicts initial assumptions.",
+            "strengths": [
+              "inclusive facilitation",
+              "feedback synthesis",
+              "rapid iteration",
+              "evidence-based adaptation"
+            ],
+            "workingStyle": "Collaborative and adaptive approach to design processes, prioritizing team input and responsiveness to new information.",
+            "growthAreas": []
+          }
+        },
+        {
+          "provider": "openai-compatible",
+          "route": "openrouter",
+          "model": "liquid/lfm-2.5-2.6b:free",
+          "error": "openai-compatible returned truncated output."
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "input": "Jonas is calm during incidents and writes careful handoff notes. He knows the data pipeline well and helps unblock others. He sometimes waits too long to flag a delivery risk because he wants to solve it alone first.",
+      "results": [
+        {
+          "provider": "openai-compatible",
+          "route": "openrouter",
+          "model": "nvidia/nemotron-3-super-120b-a12b:free",
+          "elapsedMs": 2456,
+          "usage": {
+            "input": 90,
+            "output": 260
+          },
+          "estimatedUsd": 0,
+          "profile": {
+            "summary": "Jonas is calm during incidents and writes careful handoff notes; he knows the data pipeline well and helps unblock others; he sometimes waits too long to flag a delivery risk because he prefers to solve it alone first.",
+            "strengths": [
+              "calm under pressure",
+              "clear documentation",
+              "deep pipeline knowledge",
+              "supportive teammate"
+            ],
+            "workingStyle": "prefers independent problem\u2011solving before escalating",
+            "growthAreas": [
+              "more timely risk communication"
+            ]
+          }
+        },
+        {
+          "provider": "openai-compatible",
+          "route": "openrouter",
+          "model": "liquid/lfm-2.5-2.6b:free",
+          "error": "openai-compatible returned truncated output."
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "input": "Leila explains difficult technical choices in plain language. She pairs patiently with new engineers and notices edge cases. She prefers a written agenda before large meetings and can be direct when a decision is overdue.",
+      "results": [
+        {
+          "provider": "openai-compatible",
+          "route": "openrouter",
+          "model": "nvidia/nemotron-3-super-120b-a12b:free",
+          "elapsedMs": 10872,
+          "usage": {
+            "input": 87,
+            "output": 1297
+          },
+          "estimatedUsd": 0,
+          "profile": {
+            "summary": "Explains difficult technical choices in plain language. Pairs patiently with new engineers and notices edge cases. Prefers a written agenda before large meetings. Is direct when decisions are overdue.",
+            "strengths": [
+              "Clear technical communication",
+              "Patient collaboration with new engineers",
+              "Attention to detail (edge case identification)",
+              "Meeting preparedness",
+              "Decisiveness in stalled situations"
+            ],
+            "workingStyle": "Values structured communication, collaborative mentorship, and proactive decision-making.",
+            "growthAreas": []
+          }
+        },
+        {
+          "provider": "openai-compatible",
+          "route": "openrouter",
+          "model": "liquid/lfm-2.5-2.6b:free",
+          "elapsedMs": 2519,
+          "usage": {
+            "input": 86,
+            "output": 435
+          },
+          "estimatedUsd": 0,
+          "profile": {
+            "summary": "Leila",
+            "strengths": [
+              "Explains difficult technical choices in plain language",
+              "Pairs patiently with new engineers",
+              "Notices edge cases",
+              "Prefers a written agenda before large meetings",
+              "Can be direct when a decision is overdue"
+            ],
+            "workingStyle": "Collaborative, detail-oriented, and decisive when needed",
+            "growthAreas": []
+          }
+        }
+      ]
+    }
+  ]
+}

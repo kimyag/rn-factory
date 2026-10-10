@@ -83,14 +83,23 @@ transcription and split request consumes one configured daily request.
 
 ## Compare providers
 
-The comparison script sends three synthetic descriptions to both providers
+The comparison script sends three synthetic descriptions to OpenAI and Anthropic
 with the same profile schema. It prints each result, elapsed time, token counts,
-and an estimated USD cost. It does not send the descriptions to the app server
+and an estimated USD cost. Results must pass the server's profile schema; incomplete
+responses are rejected. It does not send the descriptions to the app server
 or store them there.
 
 ```sh
-OPENAI_API_KEY=... ANTHROPIC_API_KEY=... OPENAI_COMPATIBLE_API_KEY=... pnpm ai:compare
+node --env-file=apps/template-app/.env.local scripts/compare-ai-providers.mjs
 ```
+
+For direct APIs, create the gitignored environment file from `.env.ai.example`
+and replace `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` with active credentials.
+The default comparison needs only those two provider keys. To include the compatible
+provider, set `AI_COMPARE_PROVIDERS=openai,anthropic,openai-compatible` and provide its key.
+All selected provider keys and prices are checked before any request is sent.
+Each provider request has a 60-second timeout; errors report HTTP status without
+printing provider response bodies.
 
 Defaults are `gpt-6-luna` and `claude-haiku-4-5-20251001`, using the public
 per-token prices in effect when this script was added. If changing a model,
@@ -101,6 +110,86 @@ also set its benchmark prices in USD per million tokens with
 `OPENAI_COMPATIBLE_OUTPUT_USD_PER_MTOK`. The compatible provider defaults to
 OpenRouter at `https://openrouter.ai/api/v1` with model
 `openai/gpt-oss-20b:free` and zero token prices.
+
+### Compare through OpenRouter
+
+The approved route for #59 is free OpenRouter models, using the key already in Switch
+Companion's gitignored environment file. The key is read locally; neither the
+file nor the key belongs in git or benchmark output.
+
+```sh
+AI_COMPARE_ROUTE=openrouter OPENROUTER_FREE_MODELS=nvidia/nemotron-3-super-120b-a12b:free,liquid/lfm-2.5-2.6b:free node --env-file=apps/switch-companion/.env.local scripts/compare-ai-providers.mjs
+```
+
+Free mode verifies that all selected IDs appear in OpenRouter's live catalog
+with zero input/output pricing and structured-output support before inference.
+It sends the same samples and strict schema through OpenRouter, using only
+`OPENAI_COMPATIBLE_API_KEY`. Results report token counts, latency, and zero
+estimated token cost. A model failure is recorded without discarding successful
+results from the other model; any failure makes the command exit unsuccessfully.
+There are no paid-model fallbacks.
+
+The [live comparison results](./ai-comparison.json) on 2026-10-10 selected
+`nvidia/nemotron-3-super-120b-a12b:free`:
+
+| Model | Valid profiles | Observed outcome | Estimated token cost |
+| --- | --- | --- | --- |
+| NVIDIA Nemotron 3 Super 120B A12B free | 3/3 | 2.5–10.9 seconds; 262 input and 2,060 output tokens | $0 |
+| Liquid LFM 2.5 2.6B free | 1/3 | Two truncated responses at the 1,500-token cap; successful sample took 2.5 seconds | $0 |
+
+This is a small synthetic comparison, not a broad quality or availability guarantee.
+The command exits with status 1 because Liquid failed two samples; the selected
+Nemotron model passed all three. Free endpoints have provider rate limits and
+availability constraints.
+
+### Paid OpenAI/Anthropic comparison
+
+With `AI_COMPARE_ROUTE=openrouter` and no `OPENROUTER_FREE_MODELS`, the script
+compares `openai/gpt-6-luna` and `anthropic/claude-haiku-4.5` through OpenRouter.
+This mode requires paid-model access. Direct OpenAI or Anthropic keys are not used.
+
+On 2026-10-10, the [OpenRouter catalog](https://openrouter.ai/api/v1/models)
+listed input/output prices of $0.10/$0.50 per million tokens for GPT-6 Luna
+and $1/$5 for Claude Haiku 4.5. These are the script's default estimates;
+they exclude account fees and cache discounts. To override models, use
+`OPENROUTER_OPENAI_MODEL` or `OPENROUTER_ANTHROPIC_MODEL` and supply that
+model's `OPENROUTER_OPENAI_INPUT_USD_PER_MTOK` /
+`OPENROUTER_OPENAI_OUTPUT_USD_PER_MTOK` or
+`OPENROUTER_ANTHROPIC_INPUT_USD_PER_MTOK` /
+`OPENROUTER_ANTHROPIC_OUTPUT_USD_PER_MTOK` values.
+
+### Template App activation (#59)
+
+Template App remains disabled until its server configuration is ready. The
+approved activation scope is a free-model comparison through OpenRouter,
+followed by model selection and EAS Hosting deployment. External setup is tracked in
+[#108](https://github.com/kimyag/rn-factory/issues/108); RevenueCat account setup
+is tracked in [#16](https://github.com/kimyag/rn-factory/issues/16).
+
+1. The selected model is `nvidia/nemotron-3-super-120b-a12b:free`. Set
+   `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=https://openrouter.ai/api/v1`,
+   `AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free`, and both
+   `AI_INPUT_USD_PER_MTOK` / `AI_OUTPUT_USD_PER_MTOK` to zero. Set Template App's public
+   `ai.openModelBaseUrl` and `ai.openModel` to the same base URL and model.
+2. Generate an app-specific random `AI_SIGNING_KEY` and configure Upstash so
+   Template App's counters are isolated from Switch Companion's. Premium
+   verification requires its RevenueCat public key; free access can be activated
+   separately if premium setup is deferred.
+3. Configure `OPENAI_COMPATIBLE_API_KEY`, signing key, Upstash URL/token, RevenueCat
+   key, model, and `AI_MODULE_ENABLED=true` as sensitive EAS environment variables.
+4. Once credentials are ready, set `modules.ai: true` for server export in the
+   activation worktree. Export with `pnpm --filter template-app exec expo export
+   --platform web`, then run `eas deploy --environment preview` from
+   `apps/template-app`. Test session creation, structured generation, unauthorized
+   requests, and free/premium quota handling on the preview URL.
+5. After preview passes, configure the production environment and deploy. Set
+   `ai.serverUrl` to the production HTTPS origin, re-export and deploy with that
+   configuration, and verify the production service before making the PR ready.
+   Publish native builds or app updates separately, following the runtime and
+   preview validation rules in `AGENTS.md`.
+
+Keep signed identities and quota counters isolated across apps. Passing
+comparison-script tests does not complete provider comparison or activation.
 
 ### OpenRouter availability and data handling
 
