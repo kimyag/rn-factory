@@ -54,11 +54,12 @@ export async function callOpenRouterSplit(input: {
   apiKey: string;
   baseUrl: string;
   model: string;
+  fallbackModels?: string[];
   fetcher?: typeof fetch;
 }): Promise<{ result: DumpSplit; usage: { inputTokens: number; outputTokens: number }; model: string }> {
   const language = input.detectedLanguage ? `The speech recognizer detected ${input.detectedLanguage}.` : 'Detect the input language.';
   const fetcher = input.fetcher ?? fetch;
-  const modelsToTry = [...new Set([splitModels[0], ...splitModels.slice(1), input.model])].slice(0, 3);
+  const modelsToTry = [...new Set([input.model, ...(input.fallbackModels ?? splitModels.filter((model) => model !== input.model))])].slice(0, 3);
   let lastError: unknown;
   for (const model of modelsToTry) {
     const controller = new AbortController();

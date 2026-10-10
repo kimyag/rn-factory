@@ -85,13 +85,13 @@ test('daily quotas can be set per app and preserve the global spend limit', asyn
   const limits = { free: 60, premium: 25 };
   for (let i = 0; i < 60; i++) assert.equal(await reserveQuota(store, 'switch-free', `ip-${i}`, false, 0, now, limits), 'allowed');
   assert.equal(await reserveQuota(store, 'switch-free', 'ip-next', false, 0, now, limits), 'daily_limit');
-  values.set(appScopedQuotaKey('ai:spend:2026-10-06'), { value: 5_000_000, expiresAt: Date.now() + 172_800_000 });
+  values.set(appScopedQuotaKey('template-app', 'ai:spend:2026-10-06'), { value: 5_000_000, expiresAt: Date.now() + 172_800_000 });
   assert.equal(await reserveQuota(store, 'switch-premium', 'ip-premium', true, 1, now, limits), 'budget_limit');
 });
 
 test('global daily cost cap rejects a reservation that would exceed the cap', async () => {
   const { store, values } = fakeUpstash();
-  values.set(appScopedQuotaKey('ai:spend:2026-10-06'), { value: 4_999_999, expiresAt: Date.now() + 172_800_000 });
+  values.set(appScopedQuotaKey('template-app', 'ai:spend:2026-10-06'), { value: 4_999_999, expiresAt: Date.now() + 172_800_000 });
   assert.equal(await reserveQuota(store, 'u1', 'ip', false, 2, at('2026-10-06T12:00:00.000Z')), 'budget_limit');
   assert.equal(await reserveQuota(store, 'u1', 'ip', false, 1, at('2026-10-06T12:00:00.000Z')), 'allowed');
 });
@@ -107,7 +107,7 @@ test('simultaneous reservations cannot exceed a daily limit', async () => {
 test('server denies a limit hit without calling the fake provider', async () => {
   const { store, values } = fakeUpstash();
   const session = await issueSession('test-signing-secret');
-  values.set(appScopedQuotaKey(`ai:user:${utcDay()}:${session.userId}`), { value: 5, expiresAt: Date.now() + 172_800_000 });
+  values.set(appScopedQuotaKey('template-app', `ai:user:${utcDay()}:${session.userId}`), { value: 5, expiresAt: Date.now() + 172_800_000 });
   let providerCalls = 0;
   const fakeFetch: typeof fetch = (input, init) => {
     if (String(input) === store.url) return store.fetcher!(input, init);
@@ -130,7 +130,7 @@ test('server denies a limit hit without calling the fake provider', async () => 
 
 function dumpEnv(store: QuotaStore) {
   return {
-    AI_MODULE_ENABLED: 'true', AI_PROVIDER: 'openai-compatible', AI_MODEL: 'openrouter/free',
+    AI_MODULE_ENABLED: 'true', AI_PROVIDER: 'openai-compatible', AI_MODEL: 'nvidia/nemotron-3-super-120b-a12b:free',
     AI_BASE_URL: 'https://openrouter.ai/api/v1', AI_INPUT_USD_PER_MTOK: '0', AI_OUTPUT_USD_PER_MTOK: '0',
     OPENAI_COMPATIBLE_API_KEY: 'test-openrouter-key', GROQ_API_KEY: 'test-groq-key', AI_SIGNING_KEY: 'test-signing-secret',
     UPSTASH_REDIS_REST_URL: store.url, UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
@@ -202,7 +202,7 @@ test('split rejects invalid provider shape and daily limits before extra calls',
   assert.equal(invalid.status, 502);
   assert.equal(providerCalls, 3);
   providerCalls = 0;
-  values.set(appScopedQuotaKey(`ai:user:${utcDay()}:${session.userId}`), { value: 60, expiresAt: Date.now() + 172_800_000 });
+  values.set(appScopedQuotaKey('template-app', `ai:user:${utcDay()}:${session.userId}`), { value: 60, expiresAt: Date.now() + 172_800_000 });
   const limited = await handleSplit(request(), env, async (input, init) => {
     if (String(input) === store.url) return store.fetcher!(input, init);
     providerCalls++;
@@ -217,7 +217,7 @@ test('split falls back after an unusable primary response and quota is reserved 
   const session = await issueSession('test-signing-secret');
   const models: string[] = [];
   const response = await handleSplit(authedRequest('https://app.test/ai/split', session.token,
-    JSON.stringify({ text: 'A valid note', detectedLanguage: 'English' }), { 'Content-Type': 'application/json' }), dumpEnv(store), async (input, init) => {
+    JSON.stringify({ text: 'A valid note', detectedLanguage: 'English' }), { 'Content-Type': 'application/json' }), { ...dumpEnv(store), APP_SLUG: 'switch-companion' }, async (input, init) => {
     if (String(input) === store.url) return store.fetcher!(input, init);
     const payload = JSON.parse(String(init?.body)) as { model: string };
     models.push(payload.model);
@@ -226,7 +226,25 @@ test('split falls back after an unusable primary response and quota is reserved 
   });
   assert.equal(response.status, 200);
   assert.deepEqual(models, ['nvidia/nemotron-3-super-120b-a12b:free', 'qwen/qwen3.8-27b:free']);
-  assert.equal(values.get(appScopedQuotaKey(`ai:user:${utcDay()}:${session.userId}`))?.value, 1);
+  assert.equal(values.get(appScopedQuotaKey('switch-companion', `ai:user:${utcDay()}:${session.userId}`))?.value, 1);
+});
+
+test('AI_FALLBACK_MODELS overrides the built-in split fallback list', async () => {
+  const { store } = fakeUpstash();
+  const session = await issueSession('test-signing-secret');
+  const models: string[] = [];
+  const response = await handleSplit(authedRequest('https://app.test/ai/split', session.token,
+    JSON.stringify({ text: 'A valid note', detectedLanguage: 'English' }), { 'Content-Type': 'application/json' }), {
+    ...dumpEnv(store), APP_SLUG: 'switch-companion', AI_FALLBACK_MODELS: ' vendor/backup-one:free, vendor/backup-two:free, vendor/backup-two:free ',
+  }, async (input, init) => {
+    if (String(input) === store.url) return store.fetcher!(input, init);
+    const payload = JSON.parse(String(init?.body)) as { model: string };
+    models.push(payload.model);
+    if (payload.model !== 'vendor/backup-one:free') return Response.json({ error: 'unavailable' }, { status: 503 });
+    return Response.json({ choices: [{ message: { content: JSON.stringify({ whereIWas: 'Working', looseEnds: [], nextStep: 'Continue' }) }, finish_reason: 'stop' }] });
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(models, ['nvidia/nemotron-3-super-120b-a12b:free', 'vendor/backup-one:free']);
 });
 
 test('split exhausts exactly three model attempts then returns 502 without logging content', async () => {
@@ -258,8 +276,8 @@ test('split logs only the model that answered in development', async () => {
   }) as typeof process.stdout.write;
   try {
     const response = await handleSplit(authedRequest('https://app.test/ai/split', session.token,
-      JSON.stringify({ text: 'secret user note', detectedLanguage: 'English' }), { 'Content-Type': 'application/json' }),
-    { ...dumpEnv(store), NODE_ENV: 'development' }, async (input, init) => {
+    JSON.stringify({ text: 'secret user note', detectedLanguage: 'English' }), { 'Content-Type': 'application/json' }),
+    { ...dumpEnv(store), APP_SLUG: 'switch-companion', NODE_ENV: 'development' }, async (input, init) => {
       if (String(input) === store.url) return store.fetcher!(input, init);
       const payload = JSON.parse(String(init?.body)) as { model: string };
       if (payload.model === 'nvidia/nemotron-3-super-120b-a12b:free') return Response.json({ error: 'unavailable' }, { status: 503 });
@@ -275,16 +293,20 @@ test('split logs only the model that answered in development', async () => {
 test('session, quota, spend, burst, and premium keys are prefixed with the app slug', async () => {
   const { store, values } = fakeUpstash();
   const now = at('2026-10-06T12:34:00.000Z');
-  await allowSession(store, 'ip-hash', now);
-  await reserveQuota(store, 'user-1', 'ip-hash', false, 1, now);
-  await settleQuota(store, 1, 2, now);
-  assert.ok([...values.keys()].every((key) => key.startsWith('switch-companion:')));
+  await allowSession(store, 'switch-companion', 'ip-hash', now);
+  await allowSession(store, 'template-app', 'ip-hash', now);
+  await reserveQuota(store, 'user-1', 'ip-hash', false, 1, now, undefined, 'switch-companion');
+  await reserveQuota(store, 'user-1', 'ip-hash', false, 1, now, undefined, 'template-app');
+  await settleQuota(store, 1, 2, now, 'switch-companion');
+  assert.ok([...values.keys()].some((key) => key.startsWith('switch-companion:')));
+  assert.ok([...values.keys()].some((key) => key.startsWith('template-app:')));
   assert.ok([...values.keys()].some((key) => key.includes(':ai:session:')));
   assert.ok([...values.keys()].some((key) => key.includes(':ai:user:')));
   assert.ok([...values.keys()].some((key) => key.includes(':ai:spend:')));
   assert.ok([...values.keys()].some((key) => key.includes(':ai:burst:')));
-  assert.equal(appScopedQuotaKey('ai:user:2026-10-06:user-1'), 'switch-companion:ai:user:2026-10-06:user-1');
-  assert.equal(appScopedQuotaKey('ai:premium:user-1'), 'switch-companion:ai:premium:user-1');
+  assert.equal(appScopedQuotaKey('switch-companion', 'ai:user:2026-10-06:user-1'), 'switch-companion:ai:user:2026-10-06:user-1');
+  assert.equal(appScopedQuotaKey('template-app', 'ai:premium:user-1'), 'template-app:ai:premium:user-1');
+  assert.notEqual(appScopedQuotaKey('switch-companion', 'ai:user:2026-10-06:user-1'), appScopedQuotaKey('template-app', 'ai:user:2026-10-06:user-1'));
 });
 
 function openModelEnv(store: QuotaStore) {

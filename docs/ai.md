@@ -75,7 +75,7 @@ text is saved locally.
 Dump splitting uses the server's OpenAI-compatible configuration. For
 Switch Companion, use `AI_PROVIDER=openai-compatible`,
 `AI_BASE_URL=https://openrouter.ai/api/v1`,
-`AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free`, and `OPENAI_COMPATIBLE_API_KEY`. Split requests try this model first, then Qwen3.8 27B and Gemma 4 31B free models. The server validates each structured response and retries another model at most twice, with a 20-second timeout per attempt. The client quota is reserved once for the complete split request. The response schema is validated before returning `whereIWas`, `looseEnds`, and `nextStep`.
+`AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free`, and `OPENAI_COMPATIBLE_API_KEY`. Split requests try this model first, then Qwen3.8 27B and Gemma 4 31B free models. Set optional `AI_FALLBACK_MODELS` to a comma-separated list to replace the built-in fallbacks when catalog availability changes. The server validates each structured response and retries another model at most twice, with a 20-second timeout per attempt. The client quota is reserved once for the complete split request. The response schema is validated before returning `whereIWas`, `looseEnds`, and `nextStep`.
 The prompt preserves the detected English, Turkish, or Farsi language. Each
 transcription and split request consumes one configured daily request.
 

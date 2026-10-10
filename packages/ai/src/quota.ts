@@ -4,8 +4,7 @@ export type QuotaStore = { url: string; token: string; fetcher?: typeof fetch };
 export type QuotaDecision = 'allowed' | 'daily_limit' | 'budget_limit' | 'burst_limit';
 export type DailyLimits = { free: number; premium: number };
 export const defaultDailyLimits: DailyLimits = { free: 5, premium: 25 };
-const appKeyPrefix = 'switch-companion';
-export const appScopedQuotaKey = (key: string): string => `${appKeyPrefix}:${key}`;
+export const appScopedQuotaKey = (appSlug: string, key: string): string => `${appSlug}:${key}`;
 
 const reserveScript = `
 local used = tonumber(redis.call('GET', KEYS[1]) or '0')
@@ -59,8 +58,8 @@ export function actualMicroUsd(usage: Usage, inputRate: number, outputRate: numb
   return Math.ceil(usage.inputTokens * inputRate + usage.outputTokens * outputRate);
 }
 
-export async function allowSession(store: QuotaStore, ipHash: string, now = new Date()): Promise<boolean> {
-  return await redisEval(store, sessionScript, [appScopedQuotaKey(`ai:session:${utcDay(now)}:${ipHash}`)], []) === 1;
+export async function allowSession(store: QuotaStore, appSlug: string, ipHash: string, now = new Date()): Promise<boolean> {
+  return await redisEval(store, sessionScript, [appScopedQuotaKey(appSlug, `ai:session:${utcDay(now)}:${ipHash}`)], []) === 1;
 }
 
 export async function reserveQuota(
@@ -71,18 +70,19 @@ export async function reserveQuota(
   reservedMicroUsd: number,
   now = new Date(),
   dailyLimits: DailyLimits = defaultDailyLimits,
+  appSlug = 'template-app',
 ): Promise<QuotaDecision> {
   const day = utcDay(now);
   const minute = now.toISOString().slice(0, 16);
   const result = await redisEval(store, reserveScript,
-    [appScopedQuotaKey(`ai:user:${day}:${userId}`), appScopedQuotaKey(`ai:spend:${day}`), appScopedQuotaKey(`ai:burst:${minute}:${ipHash}`)],
+    [appScopedQuotaKey(appSlug, `ai:user:${day}:${userId}`), appScopedQuotaKey(appSlug, `ai:spend:${day}`), appScopedQuotaKey(appSlug, `ai:burst:${minute}:${ipHash}`)],
     [premium ? dailyLimits.premium : dailyLimits.free, reservedMicroUsd, 5_000_000]);
   return (['allowed', 'daily_limit', 'budget_limit', 'burst_limit'] as const)[result] ?? 'budget_limit';
 }
 
-export async function settleQuota(store: QuotaStore, reserved: number, actual: number, now = new Date()): Promise<void> {
+export async function settleQuota(store: QuotaStore, reserved: number, actual: number, now = new Date(), appSlug = 'template-app'): Promise<void> {
   const difference = actual - reserved;
   if (difference !== 0) {
-    await redisEval(store, `return redis.call('INCRBY', KEYS[1], ARGV[1])`, [appScopedQuotaKey(`ai:spend:${utcDay(now)}`)], [difference]);
+    await redisEval(store, `return redis.call('INCRBY', KEYS[1], ARGV[1])`, [appScopedQuotaKey(appSlug, `ai:spend:${utcDay(now)}`)], [difference]);
   }
 }
