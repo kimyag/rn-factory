@@ -5,12 +5,12 @@ import { useNetworkState } from 'expo-network';
 import { useAi } from '@factory/ai';
 import { Button, createStyles, Mark, Screen, Text, useTheme } from '@factory/ui';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AppState, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, View, type FlatList as FlatListType, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { AppState, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View, type FlatList as FlatListType, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { text } from '@/text';
 import { closeThenProcessDump } from './dump-workflow.ts';
-import { createTaskStore, type Dump, type Task } from './task-store.ts';
+import { createTaskStore, type Dump, type LooseEnd, type Task } from './task-store.ts';
 
 const tasks = createTaskStore();
 
@@ -66,6 +66,7 @@ export function HomeScreen() {
                   key={`${width}:${open.map((task) => task.id).join(':')}`}
                   items={open}
                   dumps={state.dumps}
+                  looseEnds={state.looseEnds}
                   currentId={state.currentTaskId}
                   width={width}
                   onSelect={(id) => act(() => tasks.selectTask(id))}
@@ -325,8 +326,8 @@ function AddTask({ onSave, onCancel }: { onSave: (title: string) => void; onCanc
   );
 }
 
-function TaskPager({ items, dumps, currentId, width, onSelect, onRetryDump }: {
-  items: Task[]; dumps: Dump[]; currentId: string | null; width: number;
+function TaskPager({ items, dumps, looseEnds, currentId, width, onSelect, onRetryDump }: {
+  items: Task[]; dumps: Dump[]; looseEnds: LooseEnd[]; currentId: string | null; width: number;
   onSelect: (id: string) => void; onRetryDump: (id: string) => void;
 }) {
   const t = useText(text);
@@ -384,14 +385,19 @@ function TaskPager({ items, dumps, currentId, width, onSelect, onRetryDump }: {
             keyExtractor={(task) => task.id}
             renderItem={({ item }) => {
               const taskDumps = dumps.filter((dump) => dump.taskId === item.id);
+              const sortedIndex = taskDumps.reduce((latest, dump, dumpIndex) => dump.aiStatus === 'done' ? dumpIndex : latest, -1);
+              const sortedDump = sortedIndex >= 0 ? taskDumps[sortedIndex] : undefined;
+              const newerDumps = taskDumps.slice(sortedIndex + 1);
               return (
                 <TaskCard
                   task={item}
                   width={width}
                   height={height}
                   selected={item.id === currentId}
-                  pendingDump={taskDumps.filter((dump) => dump.aiStatus === 'pending').at(-1)}
-                  failedDump={taskDumps.filter((dump) => dump.aiStatus === 'failed' && (dump.rawText.length > 0 || dump.audioUri !== undefined)).at(-1)}
+                  pendingDump={newerDumps.filter((dump) => dump.aiStatus === 'pending').at(-1)}
+                  failedDump={newerDumps.filter((dump) => dump.aiStatus === 'failed' && (dump.rawText.length > 0 || dump.audioUri !== undefined)).at(-1)}
+                  sortedDump={sortedDump}
+                  sortedLooseEnds={sortedDump ? looseEnds.filter((end) => end.dumpId === sortedDump.id) : []}
                   onRetryDump={onRetryDump}
                 />
               );
@@ -419,30 +425,74 @@ function TaskPager({ items, dumps, currentId, width, onSelect, onRetryDump }: {
   );
 }
 
-function TaskCard({ task, width, height, selected, pendingDump, failedDump, onRetryDump }: {
+function TaskCard({ task, width, height, selected, pendingDump, failedDump, sortedDump, sortedLooseEnds, onRetryDump }: {
   task: Task; width: number; height: number; selected: boolean;
-  pendingDump?: Dump; failedDump?: Dump; onRetryDump: (id: string) => void;
+  pendingDump?: Dump; failedDump?: Dump; sortedDump?: Dump; sortedLooseEnds: LooseEnd[]; onRetryDump: (id: string) => void;
 }) {
   const t = useText(text);
   const styles = useStyles();
+  const [expandedOriginalDumpId, setExpandedOriginalDumpId] = useState<string | null>(null);
+  const originalExpanded = sortedDump !== undefined && expandedOriginalDumpId === sortedDump.id;
   return (
     <View style={[styles.card, { width, height }]} accessibilityElementsHidden={!selected} importantForAccessibility={selected ? 'auto' : 'no-hide-descendants'}>
       <View style={styles.cardHeader}>
         <Mark state={selected ? 'active' : 'empty'} />
         <Text variant="caption">{t('tasks.current')}</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.cardBody}>
-        <Text testID={selected ? 'task-current-title' : undefined} variant="title">{task.title}</Text>
-        {pendingDump && <Text testID="task-dump-pending" variant="caption">{t('leave.sorting')}</Text>}
-        {failedDump && (
-          <View style={styles.dumpState}>
-            <Text testID="task-dump-not-sorted" variant="caption">{t('leave.notSorted')}</Text>
-            <Text>{t('leave.sortFailed')}</Text>
-            <Text testID="task-dump-raw-text">{failedDump.rawText || t('leave.failedAudio')}</Text>
-            <Button testID="task-dump-retry" variant="secondary" title={t('leave.retry')} onPress={() => onRetryDump(failedDump.id)} />
+      <FlatList
+        style={styles.cardContent}
+        contentContainerStyle={styles.cardBody}
+        data={sortedDump ? sortedLooseEnds : []}
+        keyExtractor={(item) => item.id}
+        ItemSeparatorComponent={() => <View style={styles.looseEndSeparator} />}
+        ListHeaderComponent={(
+          <View style={styles.cardContentSections}>
+            <Text testID={selected ? 'task-current-title' : undefined} variant="title">{task.title}</Text>
+            {pendingDump && <Text testID="task-dump-pending" variant="caption">{t('leave.sorting')}</Text>}
+            {failedDump && (
+              <View style={styles.dumpState}>
+                <Text testID="task-dump-not-sorted" variant="caption">{t('leave.notSorted')}</Text>
+                <Text>{t('leave.sortFailed')}</Text>
+                <Text testID="task-dump-raw-text" style={styles.dumpText}>{failedDump.rawText || t('leave.failedAudio')}</Text>
+                <Button testID="task-dump-retry" variant="secondary" title={t('leave.retry')} onPress={() => onRetryDump(failedDump.id)} />
+              </View>
+            )}
+            {sortedDump && (
+              <>
+                <View testID="task-dump-section-next-step" style={styles.returnSection}>
+                  <Text variant="caption">{t('return.nextStep')}</Text>
+                  <Text testID="task-dump-next-step" variant="title" style={styles.dumpText}>{sortedDump.nextStep}</Text>
+                </View>
+                <View testID="task-dump-section-where-i-was" style={styles.returnSection}>
+                  <Text variant="caption">{t('return.whereIWas')}</Text>
+                  <Text testID="task-dump-where-i-was" style={styles.dumpText}>{sortedDump.whereIWas}</Text>
+                </View>
+                <Text testID="task-dump-section-loose-ends" variant="caption">{t('return.looseEnds')}</Text>
+              </>
+            )}
           </View>
         )}
-      </ScrollView>
+        renderItem={({ item, index }) => (
+          <View style={styles.looseEndRow}>
+            <Text variant="body">•</Text>
+            <Text testID={`task-dump-loose-end-${index}`} style={styles.dumpText}>{item.text}</Text>
+          </View>
+        )}
+        ListFooterComponent={sortedDump ? (
+          <View style={styles.originalNote}>
+            <Pressable
+              testID="task-dump-original-toggle"
+              accessibilityRole="button"
+              accessibilityState={{ expanded: originalExpanded }}
+              onPress={() => setExpandedOriginalDumpId(originalExpanded ? null : sortedDump.id)}
+              style={styles.originalToggle}
+            >
+              <Text>{t('return.originalNote')}</Text>
+            </Pressable>
+            {originalExpanded && <Text testID="task-dump-original-text" style={styles.dumpText}>{sortedDump.rawText}</Text>}
+          </View>
+        ) : null}
+      />
     </View>
   );
 }
@@ -459,9 +509,17 @@ const useStyles = createStyles((theme) => ({
     borderRadius: theme.radius.corner, padding: theme.spacing.gapWide,
   },
   placeholder: { color: theme.colors.inkMuted },
-  card: { padding: theme.spacing.edge, borderWidth: 1, borderColor: theme.colors.ink, borderRadius: theme.radius.corner },
+  card: { padding: theme.spacing.edge, borderWidth: 1, borderColor: theme.colors.ink, borderRadius: theme.radius.corner, direction: 'ltr' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.gap },
-  cardBody: { paddingTop: theme.spacing.edge },
+  cardContent: { flex: 1 },
+  cardBody: { flexGrow: 1, paddingTop: theme.spacing.edge, paddingBottom: theme.spacing.edge, direction: 'ltr' },
+  cardContentSections: { gap: theme.spacing.gapWide, paddingBottom: theme.spacing.gapWide, direction: 'ltr' },
+  returnSection: { gap: theme.spacing.gap, direction: 'ltr' },
+  dumpText: { writingDirection: 'auto' },
+  looseEndSeparator: { height: theme.spacing.gap },
+  looseEndRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.gapWide, direction: 'ltr' },
+  originalNote: { gap: theme.spacing.gapWide, paddingTop: theme.spacing.gapWide, direction: 'ltr' },
+  originalToggle: { paddingVertical: theme.spacing.gap, alignSelf: 'flex-start' },
   navigation: { flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.gap },
   undo: { gap: theme.spacing.gap },
   dumpState: { gap: theme.spacing.gapWide },

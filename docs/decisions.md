@@ -113,3 +113,4 @@ One line per decision. Newest at the bottom.
 | 2026-10-10 | Default usesNonExemptEncryption to false in app settings and derive the iOS Info.plist declaration in Expo config; restore EAS-written app.json | New apps inherit the declaration and settings remain the source of truth. |
 | 2026-10-10 | PRs always target main; no stacked PRs | Recover #98 with its squash commit on a fresh branch from main so task cards reach main after #95. |
 | 2026-10-10 | Switch Companion task cards use fixed-width FlatList item layouts for initial and programmatic scrolling (#102) | Known page widths make offscreen indices deterministic and avoid scrollToIndex failures. |
+| 2026-10-11 | Switch Companion task cards show the latest sorted dump as a return view, with newer pending/failed states above it and the original note collapsed | The next step is immediately visible on return while the transcript and previous progress remain available. |
