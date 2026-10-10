@@ -7,6 +7,9 @@ const compatibleModel = process.env.OPENAI_COMPATIBLE_MODEL ?? 'openai/gpt-oss-2
 const openAiKey = process.env.OPENAI_API_KEY;
 const anthropicKey = process.env.ANTHROPIC_API_KEY;
 const compatibleKey = process.env.OPENAI_COMPATIBLE_API_KEY;
+const route = process.env.AI_COMPARE_ROUTE ?? 'direct';
+const routedOpenAiModel = process.env.OPENROUTER_OPENAI_MODEL ?? 'openai/gpt-6-luna';
+const routedAnthropicModel = process.env.OPENROUTER_ANTHROPIC_MODEL ?? 'anthropic/claude-haiku-4.5';
 
 const samples = [
   'Mina led the weekly design review, asked quiet teammates for input, and turned vague feedback into clear next steps. She shared early drafts and adjusted quickly when research contradicted her first idea.',
@@ -16,12 +19,20 @@ const samples = [
 
 const rates = {
   openai: () => ({
-    input: rate('OPENAI_INPUT_USD_PER_MTOK', openAiModel, 'gpt-6-luna', 0.1),
-    output: rate('OPENAI_OUTPUT_USD_PER_MTOK', openAiModel, 'gpt-6-luna', 0.5),
+    input: route === 'openrouter'
+      ? rate('OPENROUTER_OPENAI_INPUT_USD_PER_MTOK', routedOpenAiModel, 'openai/gpt-6-luna', 0.1)
+      : rate('OPENAI_INPUT_USD_PER_MTOK', openAiModel, 'gpt-6-luna', 0.1),
+    output: route === 'openrouter'
+      ? rate('OPENROUTER_OPENAI_OUTPUT_USD_PER_MTOK', routedOpenAiModel, 'openai/gpt-6-luna', 0.5)
+      : rate('OPENAI_OUTPUT_USD_PER_MTOK', openAiModel, 'gpt-6-luna', 0.5),
   }),
   anthropic: () => ({
-    input: rate('ANTHROPIC_INPUT_USD_PER_MTOK', anthropicModel, 'claude-haiku-4-5-20251001', 1),
-    output: rate('ANTHROPIC_OUTPUT_USD_PER_MTOK', anthropicModel, 'claude-haiku-4-5-20251001', 5),
+    input: route === 'openrouter'
+      ? rate('OPENROUTER_ANTHROPIC_INPUT_USD_PER_MTOK', routedAnthropicModel, 'anthropic/claude-haiku-4.5', 1)
+      : rate('ANTHROPIC_INPUT_USD_PER_MTOK', anthropicModel, 'claude-haiku-4-5-20251001', 1),
+    output: route === 'openrouter'
+      ? rate('OPENROUTER_ANTHROPIC_OUTPUT_USD_PER_MTOK', routedAnthropicModel, 'anthropic/claude-haiku-4.5', 5)
+      : rate('ANTHROPIC_OUTPUT_USD_PER_MTOK', anthropicModel, 'claude-haiku-4-5-20251001', 5),
   }),
   'openai-compatible': () => ({
     input: rate('OPENAI_COMPATIBLE_INPUT_USD_PER_MTOK', compatibleModel, 'openai/gpt-oss-20b:free', 0),
@@ -46,7 +57,7 @@ function requiredKey(value, name) {
 
 async function compare(provider, model, sample, pricing) {
   const started = performance.now();
-  const response = provider === 'openai'
+  const response = provider === 'openai' && route === 'direct'
     ? await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       signal: AbortSignal.timeout(60_000),
@@ -60,7 +71,7 @@ async function compare(provider, model, sample, pricing) {
         text: { format: { type: 'json_schema', name: 'teammate_profile', schema, strict: true } },
       }),
     })
-    : provider === 'anthropic'
+    : provider === 'anthropic' && route === 'direct'
       ? await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: AbortSignal.timeout(60_000),
@@ -77,7 +88,7 @@ async function compare(provider, model, sample, pricing) {
         output_config: { format: { type: 'json_schema', schema } },
       }),
       })
-      : await fetch(`${compatibleBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+      : await fetch(`${route === 'openrouter' ? 'https://openrouter.ai/api/v1' : compatibleBaseUrl.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
         signal: AbortSignal.timeout(60_000),
         headers: {
@@ -91,7 +102,10 @@ async function compare(provider, model, sample, pricing) {
             { role: 'user', content: sample },
           ],
           max_tokens: 1_500,
-          response_format: { type: 'json_object' },
+          response_format: route === 'openrouter'
+            ? { type: 'json_schema', json_schema: { name: 'teammate_profile', strict: true, schema } }
+            : { type: 'json_object' },
+          ...(route === 'openrouter' ? { provider: { require_parameters: true } } : {}),
         }),
       });
 
@@ -100,19 +114,20 @@ async function compare(provider, model, sample, pricing) {
   if (body.status === 'incomplete' || body.stop_reason === 'max_tokens' || body.choices?.[0]?.finish_reason === 'length') {
     throw new Error(`${provider} returned truncated output.`);
   }
-  const raw = provider === 'openai'
+  const raw = provider === 'openai' && route === 'direct'
     ? (body.output ?? []).flatMap((item) => item.content ?? []).find((item) => item.type === 'output_text')?.text
-    : provider === 'anthropic'
+    : provider === 'anthropic' && route === 'direct'
       ? body.content?.find((item) => item.type === 'text')?.text
       : body.choices?.[0]?.message?.content;
   if (typeof raw !== 'string') throw new Error(`${provider} returned no structured text.`);
-  const usage = provider === 'openai'
+  const usage = provider === 'openai' && route === 'direct'
     ? { input: body.usage?.input_tokens ?? 0, output: body.usage?.output_tokens ?? 0 }
-    : provider === 'anthropic'
+    : provider === 'anthropic' && route === 'direct'
       ? { input: body.usage?.input_tokens ?? 0, output: body.usage?.output_tokens ?? 0 }
       : { input: body.usage?.prompt_tokens ?? 0, output: body.usage?.completion_tokens ?? 0 };
   return {
     provider,
+    route,
     model,
     elapsedMs: Math.round(performance.now() - started),
     usage,
@@ -122,12 +137,19 @@ async function compare(provider, model, sample, pricing) {
 }
 
 try {
+  if (route !== 'direct' && route !== 'openrouter') {
+    throw new Error('AI_COMPARE_ROUTE must be direct or openrouter.');
+  }
   const providers = (process.env.AI_COMPARE_PROVIDERS ?? 'openai,anthropic').split(',').map((value) => value.trim());
   if (providers.length < 2 || new Set(providers).size !== providers.length
     || providers.some((provider) => !Object.hasOwn(rates, provider))) {
     throw new Error('AI_COMPARE_PROVIDERS must select at least two distinct providers: openai, anthropic, openai-compatible.');
   }
-  const models = { openai: openAiModel, anthropic: anthropicModel, 'openai-compatible': compatibleModel };
+  const models = {
+    openai: route === 'openrouter' ? routedOpenAiModel : openAiModel,
+    anthropic: route === 'openrouter' ? routedAnthropicModel : anthropicModel,
+    'openai-compatible': compatibleModel,
+  };
   const keys = {
     openai: [openAiKey, 'OPENAI_API_KEY'],
     anthropic: [anthropicKey, 'ANTHROPIC_API_KEY'],
@@ -135,7 +157,8 @@ try {
   };
   const pricing = {};
   for (const provider of providers) {
-    requiredKey(...keys[provider]);
+    if (route === 'openrouter') requiredKey(compatibleKey, 'OPENAI_COMPATIBLE_API_KEY');
+    else requiredKey(...keys[provider]);
     pricing[provider] = rates[provider]();
   }
   for (const [index, sample] of samples.entries()) {

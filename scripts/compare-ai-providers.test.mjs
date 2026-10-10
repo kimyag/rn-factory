@@ -29,7 +29,12 @@ globalThis.fetch = async (url, options) => {
     assert.equal(body.output_config.format.type, 'json_schema');
     return Response.json({ content: [{ type: 'text', text }], usage: { input_tokens: 100, output_tokens: 200 } });
   }
-  assert.equal(body.response_format.type, 'json_object');
+  assert.equal(body.response_format.type, process.env.AI_COMPARE_ROUTE === 'openrouter' ? 'json_schema' : 'json_object');
+  if (process.env.AI_COMPARE_ROUTE === 'openrouter') {
+    assert.equal(options.headers.Authorization, 'Bearer test-compatible');
+    assert.equal(body.response_format.json_schema.strict, true);
+    assert.equal(body.provider.require_parameters, true);
+  }
   return Response.json({ choices: [{ message: { content: text } }], usage: { prompt_tokens: 100, completion_tokens: 200 } });
 };
 process.on('exit', () => {
@@ -44,7 +49,7 @@ process.on('exit', () => {
 
 function run(extra = {}) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
-    !/^(AI_|OPENAI_|ANTHROPIC_|MOCK_)/.test(name)));
+    !/^(AI_|OPENAI_|OPENROUTER_|ANTHROPIC_|MOCK_)/.test(name)));
   return spawnSync(process.execPath, [
     '--disable-warning=ExperimentalWarning', '--import',
     `data:text/javascript;base64,${Buffer.from(mock).toString('base64')}`,
@@ -76,6 +81,20 @@ test('the compatible provider can be explicitly included', () => {
   assert.equal((result.stdout.match(/"provider": "openai-compatible"/g) ?? []).length, 3);
 });
 
+test('OpenRouter compares OpenAI and Anthropic models with one key and routed token usage', () => {
+  const result = run({ AI_COMPARE_ROUTE: 'openrouter', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', OPENAI_COMPATIBLE_API_KEY: 'test-compatible' });
+  assert.equal(result.status, 0, result.stderr);
+  const rows = result.stdout.trim().split(/\n(?=\{)/).map((row) => JSON.parse(row));
+  for (const row of rows) {
+    assert.deepEqual(row.results.map(({ provider, route, model }) => ({ provider, route, model })), [
+      { provider: 'openai', route: 'openrouter', model: 'openai/gpt-6-luna' },
+      { provider: 'anthropic', route: 'openrouter', model: 'anthropic/claude-haiku-4.5' },
+    ]);
+    assert.equal(row.results[0].estimatedUsd, 0.00011);
+    assert.equal(row.results[1].estimatedUsd, 0.0011);
+  }
+});
+
 test('missing credentials and invalid selections fail before provider requests', () => {
   for (const extra of [
     { ANTHROPIC_API_KEY: '' },
@@ -84,11 +103,14 @@ test('missing credentials and invalid selections fail before provider requests',
     { AI_COMPARE_PROVIDERS: 'openai,openai' },
     { AI_COMPARE_PROVIDERS: 'openai' },
     { AI_OPENAI_MODEL: 'custom-without-prices' },
+    { AI_COMPARE_ROUTE: 'openrouter' },
+    { AI_COMPARE_ROUTE: 'unknown' },
+    { AI_COMPARE_ROUTE: 'openrouter', OPENAI_COMPATIBLE_API_KEY: 'test-compatible', OPENROUTER_OPENAI_MODEL: 'custom-without-prices' },
   ]) {
     const result = run(extra);
     assert.equal(result.status, 1);
     assert.equal(result.stdout, '');
-    assert.match(result.stderr, /required|AI_COMPARE_PROVIDERS|estimate its cost/);
+    assert.match(result.stderr, /required|AI_COMPARE_PROVIDERS|AI_COMPARE_ROUTE|estimate its cost/);
   }
 });
 

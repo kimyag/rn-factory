@@ -93,10 +93,10 @@ or store them there.
 node --env-file=apps/template-app/.env.local scripts/compare-ai-providers.mjs
 ```
 
-Create the gitignored environment file from `.env.ai.example` and replace
-`OPENAI_API_KEY` and `ANTHROPIC_API_KEY` with active credentials. The default
-comparison needs only those two provider keys. To include the compatible provider,
-set `AI_COMPARE_PROVIDERS=openai,anthropic,openai-compatible` and provide its key.
+For direct APIs, create the gitignored environment file from `.env.ai.example`
+and replace `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` with active credentials.
+The default comparison needs only those two provider keys. To include the compatible
+provider, set `AI_COMPARE_PROVIDERS=openai,anthropic,openai-compatible` and provide its key.
 All selected provider keys and prices are checked before any request is sent.
 Each provider request has a 60-second timeout; errors report HTTP status without
 printing provider response bodies.
@@ -111,20 +111,56 @@ also set its benchmark prices in USD per million tokens with
 OpenRouter at `https://openrouter.ai/api/v1` with model
 `openai/gpt-oss-20b:free` and zero token prices.
 
+### Compare through OpenRouter
+
+The approved route for #59 is OpenRouter, using the key already in Switch
+Companion's gitignored environment file. The key is read locally; neither the
+file nor the key belongs in git or benchmark output.
+
+```sh
+AI_COMPARE_ROUTE=openrouter node --env-file=apps/switch-companion/.env.local scripts/compare-ai-providers.mjs
+```
+
+This mode sends the same samples and strict JSON schema to
+`openai/gpt-6-luna` and `anthropic/claude-haiku-4.5` at OpenRouter's Chat
+Completions endpoint. It requires only `OPENAI_COMPATIBLE_API_KEY`; no direct
+OpenAI or Anthropic keys are used. Results identify the model developer and the
+OpenRouter route, validate against the server's profile schema, and use
+OpenRouter's reported token counts. Provider routing requires support for the
+structured-output parameters.
+
+On 2026-10-10, the [OpenRouter catalog](https://openrouter.ai/api/v1/models)
+listed input/output prices of $0.10/$0.50 per million tokens for GPT-6 Luna
+and $1/$5 for Claude Haiku 4.5. These are the script's default estimates;
+they exclude account fees and cache discounts. To override models, use
+`OPENROUTER_OPENAI_MODEL` or `OPENROUTER_ANTHROPIC_MODEL` and supply that
+model's `OPENROUTER_OPENAI_INPUT_USD_PER_MTOK` /
+`OPENROUTER_OPENAI_OUTPUT_USD_PER_MTOK` or
+`OPENROUTER_ANTHROPIC_INPUT_USD_PER_MTOK` /
+`OPENROUTER_ANTHROPIC_OUTPUT_USD_PER_MTOK` values.
+
+The first live comparison on 2026-10-10 failed with HTTP 403. The available
+key's metadata reported a $0 spending limit and free-tier access. Paid-model
+access must be configured before comparing these two models; a successful
+authentication check alone does not establish model access.
+
 ### Template App activation (#59)
 
 Template App remains disabled until its server configuration is ready. The
-approved activation scope is an OpenAI/Anthropic comparison, followed by provider
-selection and EAS Hosting deployment. Missing external credentials are tracked in
+approved activation scope is an OpenAI/Anthropic comparison through OpenRouter,
+followed by model selection and EAS Hosting deployment. External setup is tracked in
 [#108](https://github.com/kimyag/rn-factory/issues/108); RevenueCat account setup
 is tracked in [#16](https://github.com/kimyag/rn-factory/issues/16).
 
-1. Configure the two provider keys in the gitignored Template App environment file
-   and run the comparison above. Choose `AI_PROVIDER` and `AI_MODEL` using its
-   validated results, latency, and estimated costs.
+1. Enable paid-model access on the existing OpenRouter key and run the routed
+   comparison above. Choose a model using its validated results, latency, and
+   estimated costs. Set `AI_PROVIDER=openai-compatible`,
+   `AI_BASE_URL=https://openrouter.ai/api/v1`, the selected `AI_MODEL`, and
+   its input/output USD-per-million-token rates. Set Template App's public
+   `ai.openModelBaseUrl` and `ai.openModel` to the same base URL and model.
 2. Generate an app-specific random `AI_SIGNING_KEY`, provide a separate Upstash
    database for Template App's counters, and provide its RevenueCat public key.
-3. Configure the selected provider key, signing key, Upstash URL/token, RevenueCat
+3. Configure `OPENAI_COMPATIBLE_API_KEY`, signing key, Upstash URL/token, RevenueCat
    key, model, and `AI_MODULE_ENABLED=true` as sensitive EAS environment variables.
 4. Once credentials are ready, set `modules.ai: true` for server export in the
    activation worktree. Export with `pnpm --filter template-app exec expo export
