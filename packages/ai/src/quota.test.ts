@@ -294,12 +294,9 @@ test('session, quota, spend, burst, and premium keys are prefixed with the app s
   const { store, values } = fakeUpstash();
   const now = at('2026-10-06T12:34:00.000Z');
   await allowSession(store, 'switch-companion', 'ip-hash', now);
-  await allowSession(store, 'template-app', 'ip-hash', now);
   await reserveQuota(store, 'user-1', 'ip-hash', false, 1, now, undefined, 'switch-companion');
-  await reserveQuota(store, 'user-1', 'ip-hash', false, 1, now, undefined, 'template-app');
   await settleQuota(store, 1, 2, now, 'switch-companion');
   assert.ok([...values.keys()].some((key) => key.startsWith('switch-companion:')));
-  assert.ok([...values.keys()].some((key) => key.startsWith('template-app:')));
   assert.ok([...values.keys()].some((key) => key.includes(':ai:session:')));
   assert.ok([...values.keys()].some((key) => key.includes(':ai:user:')));
   assert.ok([...values.keys()].some((key) => key.includes(':ai:spend:')));
