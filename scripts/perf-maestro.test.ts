@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { preparePerformanceFlow } from './maestro-flow.ts';
+import { flowsIn, selectFlows } from './maestro-lib.ts';
 import { clearAppDataCommand, traceCommands, traceConfig, validateAppId } from './perf-maestro-lib.ts';
 
 test('trace settings include FrameTimeline and bounded CPU scheduling sources', () => {
@@ -46,6 +47,25 @@ test('performance settings prepare with payment assertions hidden', () => {
     assert.match(contents, /settings-payments-inactive\.yaml/);
     assert.doesNotMatch(contents, /settings-payments-active\.yaml|settings-payments-check\.yaml/);
     assert.match(contents, /preview-start\.yaml/);
+  } finally {
+    rmSync(output, { recursive: true, force: true });
+  }
+});
+
+test('Switch Companion loose-ends performance flow is discoverable and keeps its explicit development seed link', () => {
+  const root = join(import.meta.dirname, '..');
+  const shared = join(root, 'maestro');
+  const app = join(root, 'apps/switch-companion/.maestro');
+  const output = mkdtempSync(join(tmpdir(), 'perf-maestro-loose-ends-test-'));
+  try {
+    const flow = selectFlows(flowsIn(shared).concat(flowsIn(app)), ['loose-ends'])[0];
+    assert.ok(flow);
+    const prepared = preparePerformanceFlow(flow, shared, app, output);
+    const contents = readFileSync(prepared.file, 'utf8');
+    assert.match(contents, /openLink: switch-companion:\/\/\/perf-seed/);
+    assert.match(contents, /id: loose-ends-row-perf-loose-end-500/);
+    assert.match(contents, /direction: RIGHT/);
+    assert.match(contents, /^- runFlow: subflows\/perf-dev-start\.yaml/m);
   } finally {
     rmSync(output, { recursive: true, force: true });
   }

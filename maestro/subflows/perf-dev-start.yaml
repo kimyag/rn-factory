@@ -1,0 +1,16 @@
+# Launch the installed development client from the dev server with a clean store.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      notifications: unset
+- openLink: ${DEV_CLIENT_LINK}
+- tapOn:
+    text: Continue
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: onboarding-next
+    timeout: 180000

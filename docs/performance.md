@@ -9,7 +9,9 @@ install, publish, or upload an app or trace.
 The phone must be free, connected by USB debugging, and the only device shown by
 `adb devices`. FrameTimeline requires Android 12 (API 31) or newer. Install the
 app's standalone release build first; the development client and Metro server
-are intentionally not used. Install Maestro as described in
+are not used for release-flow measurements. The Switch Companion `loose-ends`
+flow is a development-only exception: install its development build and start
+Metro before running it. Install Maestro as described in
 [maestro.md](maestro.md), plus Python 3.10+ and the pinned Perfetto Trace
 Processor:
 
@@ -30,12 +32,18 @@ the processor or building a native app.
 ```sh
 pnpm perf:maestro settings
 pnpm perf:maestro onboarding-pages --app my-app --lang en --theme dark
+pnpm --filter switch-companion start --lan
+pnpm perf:maestro loose-ends --app switch-companion --server http://<computer-lan-ip>:8081
 ```
 
 Run one flow per command. Before tracing, the runner clears the app data with
 `adb shell pm clear`; each prepared flow then begins with the preview startup
 subflow, which stops the app, clears its state again, and waits for the
-fresh-install onboarding screen. Clearing app data also removes downloaded Expo
+fresh-install onboarding screen. The loose-ends flow instead starts the
+installed development client from Metro, explicitly opens the development-only
+seed deep link after onboarding, and seeds only an empty store. Its report
+labels the bundle `development-server`; production builds cannot enter the seed
+route. Clearing app data also removes downloaded Expo
 Updates, so the run uses the embedded bundle; `report.json` records
 `initial_state: "cleared"` and `bundle: "embedded"`. The runner starts a
 bounded 180-second Perfetto trace, runs Maestro once, then stops and pulls the

@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { homedir, networkInterfaces, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { connectedDevices, flowsIn, maestroArgs, parseArgs, selectFlows } from './maestro-lib.ts';
-import { preparePerformanceFlow } from './maestro-flow.ts';
+import { connectedDevices, devClientLink, flowsIn, maestroArgs, parseArgs, selectFlows } from './maestro-lib.ts';
+import { prepareFlow, preparePerformanceFlow } from './maestro-flow.ts';
 import { clearAppDataCommand, traceCommands, traceConfig, validateAppId } from './perf-maestro-lib.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -40,6 +40,15 @@ function pythonBinary(): string {
   return fail('Python 3 is required. See docs/performance.md to install the pinned Perfetto Trace Processor.');
 }
 
+function lanAddress(): string {
+  for (const addresses of Object.values(networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (address.family === 'IPv4' && !address.internal) return address.address;
+    }
+  }
+  fail('No network address found. Pass --server http://<address>:8081');
+}
+
 async function main() {
   let options;
   try {
@@ -47,8 +56,9 @@ async function main() {
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
   }
-  if (options.names.length !== 1 || options.server !== null) {
-    fail('Run exactly one flow: pnpm perf:maestro <flow> [--app <app>] [--lang en] [--theme dark]. This command uses an installed release build and no dev server.');
+  const developmentFlow = options.app === 'switch-companion' && options.names.length === 1 && options.names[0] === 'loose-ends';
+  if (options.names.length !== 1 || (options.server !== null && !developmentFlow)) {
+    fail('Run exactly one flow: pnpm perf:maestro <flow> [--app <app>] [--lang en] [--theme dark]. Only Switch Companion loose-ends accepts --server and uses a development build.');
   }
 
   const appDir = join(root, 'apps', options.app);
@@ -58,6 +68,7 @@ async function main() {
   const imported: unknown = await import(pathToFileURL(join(appDir, 'app.settings.ts')).href);
   const settings = (imported as { default: { slug: string; bundleIds: { android: string } } }).default;
   const appId = settings.bundleIds.android;
+  const slug = settings.slug;
   validateAppId(appId);
 
   const sharedDir = join(root, 'maestro');
@@ -65,6 +76,14 @@ async function main() {
   const flow = selectFlows([...flowsIn(sharedDir), ...flowsIn(appFlowsDir)], options.names)[0];
   if (!flow) {
     fail('The requested flow was not found.');
+  }
+
+  const server = developmentFlow ? options.server ?? `http://${lanAddress()}:8081` : null;
+  if (developmentFlow) {
+    const status = await fetch(`${server}/status`).then((response) => response.text(), () => '');
+    if (!status.includes('packager-status:running')) {
+      fail(`The dev server is not running at ${server}. Start it: pnpm --filter switch-companion start --lan`);
+    }
   }
 
   const devices = connectedDevices(checked('adb', ['devices']));
@@ -76,7 +95,7 @@ async function main() {
     fail(`Unsupported Android API ${apiLevel || 'unknown'}: FrameTimeline requires Android 12/API 31+, and this runner has no frame-metric fallback for older versions.`);
   }
   if (!checked('adb', ['shell', 'pm', 'path', appId]).includes('package:')) {
-    fail(`Install a standalone release build for ${appId} first. Do not use the development client for performance measurements.`);
+    fail(`Install a standalone ${developmentFlow ? 'development' : 'release'} build for ${appId} first.`);
   }
 
   const python = pythonBinary();
@@ -92,7 +111,9 @@ async function main() {
   const out = join(root, 'maestro-screenshots', 'performance', options.app, flow.name, stamp);
   mkdirSync(out, { recursive: true });
   const flowDir = mkdtempSync(join(tmpdir(), 'rn-factory-maestro-perf-'));
-  const releaseFlowFile = preparePerformanceFlow(flow, sharedDir, appFlowsDir, flowDir).file;
+  const configuredFlow = developmentFlow
+    ? prepareFlow(flow, sharedDir, appFlowsDir, flowDir, false)
+    : preparePerformanceFlow(flow, sharedDir, appFlowsDir, flowDir);
   const key = `rn-factory-${stamp}`;
   const remoteTrace = `/data/misc/perfetto-traces/${key}.pftrace`;
   const trace = join(out, `${flow.name}.pftrace`);
@@ -107,13 +128,13 @@ async function main() {
     checked('adb', commands.start, traceConfig(appId));
     traceStarted = true;
     checked('adb', ['shell', 'svc', 'power', 'stayon', 'usb']);
-    const run = spawnSync(binary, maestroArgs(flow, {
+    const run = spawnSync(binary, maestroArgs(configuredFlow, {
       appId,
-      link: '',
-      server: '',
+      link: developmentFlow ? devClientLink(slug, server ?? '') : '',
+      server: server ?? '',
       lang: options.lang,
       theme: options.theme,
-    }).map((arg) => (arg === flow.file ? releaseFlowFile : arg)), { cwd: out, stdio: 'inherit' });
+    }), { cwd: out, stdio: 'inherit' });
     flowPassed = run.status === 0;
     if (run.error) {
       throw run.error;
@@ -155,7 +176,7 @@ async function main() {
     app: options.app,
     flow: flow.name,
     initial_state: 'cleared',
-    bundle: 'embedded',
+    bundle: developmentFlow ? 'development-server' : 'embedded',
   };
   const reportPath = join(out, 'report.json');
   writeFileSync(reportPath, `${JSON.stringify(result, null, 2)}\n`);

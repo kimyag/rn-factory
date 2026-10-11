@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import { createTaskStore, dumpSchema, emptyTaskState, looseEndSchema, migrateTaskState, taskStateSchema, taskStorage } from '../apps/switch-companion/src/feature/task-store.ts';
 import { closeThenProcessDump } from '../apps/switch-companion/src/feature/dump-workflow.ts';
+import { looseEndListItems, createDevelopmentSeed } from '../apps/switch-companion/src/feature/loose-ends.ts';
 
 const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 let values: Map<string, string>;
@@ -106,6 +108,47 @@ test('pending dump persists before processing; completion saves transcript and l
   assert.equal(restored.dumps[0]?.aiStatus, 'done');
   assert.equal(restored.dumps[0]?.detectedLanguage, 'Turkish');
   assert.deepEqual(restored.looseEnds.map((end) => end.text), ['Check dates.']);
+});
+
+test('loose-end status changes persist and undo restores the previous status and timestamp', () => {
+  seed(3, { tasks: [first], dumps: [{ ...dump, aiStatus: 'done' }], looseEnds: [{ ...looseEnd, status: 'open' }], currentTaskId: 'a' });
+  const store = createTaskStore();
+  const previous = store.setLooseEndStatus('end', 'later', 50);
+  assert.deepEqual(previous, { status: 'open', updatedAt: 4 });
+  assert.equal(createTaskStore().getSnapshot().looseEnds[0]?.status, 'later');
+  store.restoreLooseEndStatus('end', previous!);
+  assert.deepEqual(createTaskStore().getSnapshot().looseEnds[0], { ...looseEnd, status: 'open' });
+});
+
+test('later loose ends are grouped by task in the final section', () => {
+  const tasks = [first, second];
+  const dumps = [
+    { id: 'da', taskId: 'a', createdAt: 3, rawText: '', source: 'text' as const, aiStatus: 'done' as const },
+    { id: 'db', taskId: 'b', createdAt: 4, rawText: '', source: 'text' as const, aiStatus: 'done' as const },
+  ];
+  const ends: LooseEnd[] = [
+    { id: 'open-a', taskId: 'a', dumpId: 'da', text: 'Open A', status: 'open', updatedAt: 5 },
+    { id: 'later-b', taskId: 'b', dumpId: 'db', text: 'Later B', status: 'later', updatedAt: 6 },
+    { id: 'later-a', taskId: 'a', dumpId: 'da', text: 'Later A', status: 'later', updatedAt: 7 },
+  ];
+  const rows = looseEndListItems(tasks, ends);
+  assert.deepEqual(rows.map((row) => row.kind === 'item' ? row.end.id : row.id), [
+    'task:a', 'open-a', 'later', 'later-task:a', 'later-a', 'later-task:b', 'later-b',
+  ]);
+});
+
+test('development seed is opt-in, empty-store-only, and contains 500 ends across 10 tasks', () => {
+  const store = createTaskStore();
+  assert.equal(store.seedDevelopmentData(false, 10), false);
+  assert.deepEqual(store.getSnapshot(), emptyTaskState);
+  assert.equal(store.seedDevelopmentData(true, 10), true);
+  assert.equal(store.getSnapshot().tasks.length, 10);
+  assert.equal(store.getSnapshot().looseEnds.length, 500);
+  assert.equal(store.seedDevelopmentData(true, 11), false);
+  assert.equal(store.getSnapshot().tasks.length, 10);
+  assert.ok(createDevelopmentSeed(0).looseEnds.every((end) => end.status === 'open'));
+  const seedRoute = readFileSync(new URL('../apps/switch-companion/src/app/(feature)/perf-seed.tsx', import.meta.url), 'utf8');
+  assert.match(seedRoute, /if\s*\(__DEV__\)\s*taskStore\.seedDevelopmentData\(true/);
 });
 
 test('failed dump retains raw input and local audio for retry, then retry enters pending', () => {
