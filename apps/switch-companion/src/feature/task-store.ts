@@ -1,4 +1,5 @@
 import { storedValue, z, type StoredValue } from '@factory/core/storage';
+import { createDevelopmentSeed } from './loose-ends.ts';
 
 const id = z.string().min(1);
 const timestamp = z.number().int().nonnegative();
@@ -144,5 +145,29 @@ export function createTaskStore(storage: StoredValue<TaskState> = taskStorage())
       if (!current || current.aiStatus !== 'failed') return;
       save({ ...snapshot, dumps: snapshot.dumps.map((dump) => dump.id === dumpId ? { ...dump, aiStatus: 'pending' } : dump) });
     },
+    setLooseEndStatus(endId: string, status: LooseEnd['status'], now: number) {
+      const current = snapshot.looseEnds.find((end) => end.id === endId);
+      if (!current || current.status === status) return current;
+      const previous = { status: current.status, updatedAt: current.updatedAt };
+      save({
+        ...snapshot,
+        looseEnds: snapshot.looseEnds.map((end) => end.id === endId ? { ...end, status, updatedAt: now } : end),
+      });
+      return previous;
+    },
+    restoreLooseEndStatus(endId: string, previous: { status: LooseEnd['status']; updatedAt: number }) {
+      if (!snapshot.looseEnds.some((end) => end.id === endId)) return;
+      save({
+        ...snapshot,
+        looseEnds: snapshot.looseEnds.map((end) => end.id === endId ? { ...end, ...previous } : end),
+      });
+    },
+    seedDevelopmentData(development: boolean, now: number) {
+      if (!development || snapshot.tasks.length !== 0) return false;
+      save(taskStateSchema.parse(createDevelopmentSeed(now)));
+      return true;
+    },
   };
 }
+
+export const taskStore = createTaskStore();

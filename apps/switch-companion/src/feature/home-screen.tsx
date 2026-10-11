@@ -3,16 +3,16 @@ import { useAudioRecorder, AudioModule, RecordingPresets, useAudioRecorderState 
 import { File } from 'expo-file-system';
 import { useNetworkState } from 'expo-network';
 import { useAi } from '@factory/ai';
-import { Button, createStyles, Mark, Screen, Text, useTheme } from '@factory/ui';
+import { Button, createStyles, Mark, Screen, Text, useAchievementDuration, useTheme } from '@factory/ui';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View, type FlatList as FlatListType, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { text } from '@/text';
 import { closeThenProcessDump } from './dump-workflow.ts';
-import { createTaskStore, type Dump, type LooseEnd, type Task } from './task-store.ts';
-
-const tasks = createTaskStore();
+import { SwipeLooseEndRow } from './swipe-loose-end-row.tsx';
+import { taskStore as tasks, type Dump, type LooseEnd, type Task } from './task-store.ts';
 
 export function HomeScreen() {
   const t = useText(text);
@@ -20,12 +20,69 @@ export function HomeScreen() {
   const network = useNetworkState();
   const styles = useStyles();
   const state = useSyncExternalStore(tasks.subscribe, tasks.getSnapshot, tasks.getSnapshot);
+  const achievementDuration = useAchievementDuration();
   const [adding, setAdding] = useState(false);
   const [undoId, setUndoId] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [looseEndUndo, setLooseEndUndo] = useState<{ id: string; end: LooseEnd; previous: { status: LooseEnd['status']; updatedAt: number } }[]>([]);
+  const [completingLooseEndIds, setCompletingLooseEndIds] = useState<string[]>([]);
+  const looseEndTimers = useRef(new Map<string, { undo: ReturnType<typeof setTimeout>; complete?: ReturnType<typeof setTimeout> }>());
   const open = state.tasks.filter((task) => task.archivedAt === undefined);
   const [width, setWidth] = useState(0);
+
+  useEffect(() => () => {
+    for (const timer of looseEndTimers.current.values()) {
+      clearTimeout(timer.undo);
+      if (timer.complete) clearTimeout(timer.complete);
+    }
+    looseEndTimers.current.clear();
+  }, []);
+
+  function changeLooseEndStatus(endId: string, status: 'done' | 'later') {
+    act(() => {
+      const end = tasks.getSnapshot().looseEnds.find((item) => item.id === endId);
+      if (!end) return;
+      if (status === 'done') setCompletingLooseEndIds((current) => current.includes(endId) ? current : [...current, endId]);
+      let previous: ReturnType<typeof tasks.setLooseEndStatus>;
+      try {
+        previous = tasks.setLooseEndStatus(endId, status, Date.now());
+      } catch (error) {
+        if (status === 'done') setCompletingLooseEndIds((current) => current.filter((id) => id !== endId));
+        throw error;
+      }
+      if (!previous) {
+        if (status === 'done') setCompletingLooseEndIds((current) => current.filter((id) => id !== endId));
+        return;
+      }
+      const actionId = `${endId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+      setLooseEndUndo((current) => [...current, { id: actionId, end, previous }]);
+      const undo = setTimeout(() => {
+        looseEndTimers.current.delete(actionId);
+        setLooseEndUndo((current) => current.filter((action) => action.id !== actionId));
+      }, 5_000);
+      const complete = status === 'done'
+        ? setTimeout(() => setCompletingLooseEndIds((current) => current.filter((id) => id !== endId)), achievementDuration)
+        : undefined;
+      looseEndTimers.current.set(actionId, { undo, complete });
+    });
+  }
+
+  function undoLooseEnd(actionId: string) {
+    const action = looseEndUndo.find((item) => item.id === actionId);
+    if (!action) return;
+    act(() => {
+      tasks.restoreLooseEndStatus(action.end.id, action.previous);
+      const timer = looseEndTimers.current.get(actionId);
+      if (timer) {
+        clearTimeout(timer.undo);
+        if (timer.complete) clearTimeout(timer.complete);
+        looseEndTimers.current.delete(actionId);
+      }
+      setCompletingLooseEndIds((current) => current.filter((id) => id !== action.end.id));
+      setLooseEndUndo((current) => current.filter((item) => item.id !== actionId));
+    });
+  }
 
   function act(action: () => void) {
     try {
@@ -71,6 +128,10 @@ export function HomeScreen() {
                   width={width}
                   onSelect={(id) => act(() => tasks.selectTask(id))}
                   onRetryDump={retryDump}
+                  onLooseEndStatusChange={changeLooseEndStatus}
+                  onUndoLooseEnd={undoLooseEnd}
+                  looseEndUndo={looseEndUndo}
+                  completingLooseEndIds={completingLooseEndIds}
                 />
               )}
             </View>
@@ -326,9 +387,13 @@ function AddTask({ onSave, onCancel }: { onSave: (title: string) => void; onCanc
   );
 }
 
-function TaskPager({ items, dumps, looseEnds, currentId, width, onSelect, onRetryDump }: {
+function TaskPager({ items, dumps, looseEnds, currentId, width, onSelect, onRetryDump, onLooseEndStatusChange, onUndoLooseEnd, looseEndUndo = [], completingLooseEndIds = [] }: {
   items: Task[]; dumps: Dump[]; looseEnds: LooseEnd[]; currentId: string | null; width: number;
   onSelect: (id: string) => void; onRetryDump: (id: string) => void;
+  onLooseEndStatusChange: (id: string, status: 'done' | 'later') => void;
+  onUndoLooseEnd: (id: string) => void;
+  looseEndUndo?: { id: string; end: LooseEnd; previous: { status: LooseEnd['status']; updatedAt: number } }[];
+  completingLooseEndIds?: string[];
 }) {
   const t = useText(text);
   const styles = useStyles();
@@ -397,8 +462,11 @@ function TaskPager({ items, dumps, looseEnds, currentId, width, onSelect, onRetr
                   pendingDump={newerDumps.filter((dump) => dump.aiStatus === 'pending').at(-1)}
                   failedDump={newerDumps.filter((dump) => dump.aiStatus === 'failed' && (dump.rawText.length > 0 || dump.audioUri !== undefined)).at(-1)}
                   sortedDump={sortedDump}
-                  sortedLooseEnds={sortedDump ? looseEnds.filter((end) => end.dumpId === sortedDump.id) : []}
+                  sortedLooseEnds={sortedDump ? looseEnds.filter((end) => end.dumpId === sortedDump.id && (end.status === 'open' || completingLooseEndIds.includes(end.id))) : []}
                   onRetryDump={onRetryDump}
+                  onLooseEndStatusChange={onLooseEndStatusChange}
+                  onUndoLooseEnd={onUndoLooseEnd}
+                  looseEndUndo={looseEndUndo.filter((action) => action.end.taskId === item.id)}
                 />
               );
             }}
@@ -425,27 +493,32 @@ function TaskPager({ items, dumps, looseEnds, currentId, width, onSelect, onRetr
   );
 }
 
-function TaskCard({ task, width, height, selected, pendingDump, failedDump, sortedDump, sortedLooseEnds, onRetryDump }: {
+function TaskCard({ task, width, height, selected, pendingDump, failedDump, sortedDump, sortedLooseEnds, onRetryDump, onLooseEndStatusChange, onUndoLooseEnd, looseEndUndo = [] }: {
   task: Task; width: number; height: number; selected: boolean;
   pendingDump?: Dump; failedDump?: Dump; sortedDump?: Dump; sortedLooseEnds: LooseEnd[]; onRetryDump: (id: string) => void;
+  onLooseEndStatusChange: (id: string, status: 'done' | 'later') => void;
+  onUndoLooseEnd: (id: string) => void;
+  looseEndUndo?: { id: string; end: LooseEnd }[];
 }) {
   const t = useText(text);
   const styles = useStyles();
   const [expandedOriginalDumpId, setExpandedOriginalDumpId] = useState<string | null>(null);
   const originalExpanded = sortedDump !== undefined && expandedOriginalDumpId === sortedDump.id;
+  const scrollGesture = Gesture.Native();
   return (
     <View style={[styles.card, { width, height }]} accessibilityElementsHidden={!selected} importantForAccessibility={selected ? 'auto' : 'no-hide-descendants'}>
       <View style={styles.cardHeader}>
         <Mark state={selected ? 'active' : 'empty'} />
         <Text variant="caption">{t('tasks.current')}</Text>
       </View>
-      <FlatList
-        style={styles.cardContent}
-        contentContainerStyle={styles.cardBody}
-        data={sortedDump ? sortedLooseEnds : []}
-        keyExtractor={(item) => item.id}
-        ItemSeparatorComponent={() => <View style={styles.looseEndSeparator} />}
-        ListHeaderComponent={(
+      <GestureDetector gesture={scrollGesture}>
+        <FlatList
+          style={styles.cardContent}
+          contentContainerStyle={styles.cardBody}
+          data={sortedDump ? sortedLooseEnds : []}
+          keyExtractor={(item) => item.id}
+          ItemSeparatorComponent={() => <View style={styles.looseEndSeparator} />}
+          ListHeaderComponent={(
           <View style={styles.cardContentSections}>
             <Text testID={selected ? 'task-current-title' : undefined} variant="title">{task.title}</Text>
             {pendingDump && <Text testID="task-dump-pending" variant="caption">{t('leave.sorting')}</Text>}
@@ -472,27 +545,38 @@ function TaskCard({ task, width, height, selected, pendingDump, failedDump, sort
             )}
           </View>
         )}
-        renderItem={({ item, index }) => (
-          <View style={styles.looseEndRow}>
-            <Text variant="body">•</Text>
-            <Text testID={`task-dump-loose-end-${index}`} style={styles.dumpText}>{item.text}</Text>
-          </View>
-        )}
-        ListFooterComponent={sortedDump ? (
-          <View style={styles.originalNote}>
-            <Pressable
-              testID="task-dump-original-toggle"
-              accessibilityRole="button"
-              accessibilityState={{ expanded: originalExpanded }}
-              onPress={() => setExpandedOriginalDumpId(originalExpanded ? null : sortedDump.id)}
-              style={styles.originalToggle}
-            >
-              <Text>{t('return.originalNote')}</Text>
-            </Pressable>
-            {originalExpanded && <Text testID="task-dump-original-text" style={styles.dumpText}>{sortedDump.rawText}</Text>}
-          </View>
-        ) : null}
-      />
+          renderItem={({ item, index }) => (
+            <SwipeLooseEndRow
+              item={item}
+              taskTitle={task.title}
+              scrollGesture={scrollGesture}
+              complete={item.status === 'done'}
+              testID={`task-dump-loose-end-${index}`}
+              onStatusChange={onLooseEndStatusChange}
+            />
+          )}
+          ListFooterComponent={sortedDump ? (
+            <View style={styles.originalNote}>
+              {looseEndUndo.map((action) => (
+                <View key={action.id} style={styles.cardUndo}>
+                  <Text style={styles.dumpText}>{action.end.text}</Text>
+                  <Button testID={`task-dump-undo-${action.end.id}`} variant="secondary" title={t('looseEnds.undo')} onPress={() => onUndoLooseEnd(action.id)} />
+                </View>
+              ))}
+              <Pressable
+                testID="task-dump-original-toggle"
+                accessibilityRole="button"
+                accessibilityState={{ expanded: originalExpanded }}
+                onPress={() => setExpandedOriginalDumpId(originalExpanded ? null : sortedDump.id)}
+                style={styles.originalToggle}
+              >
+                <Text>{t('return.originalNote')}</Text>
+              </Pressable>
+              {originalExpanded && <Text testID="task-dump-original-text" style={styles.dumpText}>{sortedDump.rawText}</Text>}
+            </View>
+          ) : null}
+        />
+      </GestureDetector>
     </View>
   );
 }
@@ -517,7 +601,7 @@ const useStyles = createStyles((theme) => ({
   returnSection: { gap: theme.spacing.gap, direction: 'ltr' },
   dumpText: { writingDirection: 'auto' },
   looseEndSeparator: { height: theme.spacing.gap },
-  looseEndRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.gapWide, direction: 'ltr' },
+  cardUndo: { gap: theme.spacing.gapWide },
   originalNote: { gap: theme.spacing.gapWide, paddingTop: theme.spacing.gapWide, direction: 'ltr' },
   originalToggle: { paddingVertical: theme.spacing.gap, alignSelf: 'flex-start' },
   navigation: { flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.gap },

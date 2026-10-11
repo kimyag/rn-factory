@@ -20,9 +20,10 @@ export type MarkState = 'empty' | 'active' | 'complete' | 'loading';
 type MarkProps = {
   state: MarkState;
   accessibilityLabel?: string;
+  testID?: string;
 };
 
-export function Mark({ state, accessibilityLabel }: MarkProps) {
+export function Mark({ state, accessibilityLabel, testID }: MarkProps) {
   const theme = useTheme();
   const styles = useStyles();
   const reduceMotion = useReducedMotion();
@@ -64,6 +65,7 @@ export function Mark({ state, accessibilityLabel }: MarkProps) {
 
   return (
     <View
+      testID={testID}
       style={styles.mark}
       accessible={accessibilityLabel !== undefined || loading}
       accessibilityLabel={accessibilityLabel}

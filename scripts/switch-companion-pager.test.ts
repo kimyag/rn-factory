@@ -66,6 +66,7 @@ function host(reducedMotion = false) {
         case 'react-native-reanimated': return { useReducedMotion: () => reducedMotion };
         case 'react-native-gesture-handler': return { Gesture: { Native: () => ({}) }, GestureDetector: 'GestureDetector' };
         case './task-store.ts': return { createTaskStore: () => ({}) };
+        case './swipe-loose-end-row.tsx': return { SwipeLooseEndRow: 'SwipeLooseEndRow' };
         case './dump-workflow.ts': return { closeThenProcessDump: () => Promise.resolve() };
         case '@/text': return {};
         default: throw new Error(`Unexpected import ${name}`);
